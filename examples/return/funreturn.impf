@@ -1,0 +1,21 @@
+var g = fun(){
+    if(true){
+      return;
+    }else{
+    }
+    println("Returned only out of block g");
+};
+
+var f = fun () {
+  if(true){
+    g();
+    println("after f");
+    return;
+  }else{
+  }
+  println("Returned only out of block f");
+};
+
+
+f();
+println("Returned fully");

@@ -1,0 +1,10 @@
+var f = fun () {
+  if(true){
+    return;
+  }else{
+  }
+  println("Returned only out of block");
+};
+
+f();
+println("Returned fully");

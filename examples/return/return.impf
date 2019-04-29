@@ -1,0 +1,8 @@
+var f = fun () {
+  println("in fun");
+  return
+  println("failed to ");
+};
+
+f();
+println("success");
