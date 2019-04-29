@@ -107,7 +107,11 @@ step (SReturn, env, ctx) = do
                 Nothing -> error ("No environment found to return to " ++ (printInfo env octx))
   return (SSkip, oenv, octx)
 
-step (STryCatch b v c, env, ctx) = return (b, addVar v , ECall (HoleWithEnv env) [] vs: ctx) 
+-- throw , add the expr to the returning ctx
+step (SThrow msg, env, SCatch vnm c:ctx) = return (c, addVar vnm msg env, SReturn : ctx)
+step (SThrow msg, env, ctx) = error $ "Exception thrown with no one to catch it or whats thrown is not a value \nmsg:"++show msg++ (printInfo env ctx)
+--try catch
+step (STry b v c, env, ctx) = return (b, env , SCatch v c:ctx) 
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
 step (e, env, ctx) = error $ "Stuck at expression: " ++ show e ++ (printInfo env ctx)

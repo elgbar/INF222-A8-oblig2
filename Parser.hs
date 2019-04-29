@@ -88,15 +88,15 @@ returnStmt = do
   
 tryStmt = do
   reserved "try"
-  try <- block
+  b <- block
   reserved "catch"
-  i <- parens identifier
-  catch <- block
-  return $ STryCatch try i catch
+  v <- parens identifier
+  c <- block
+  return $ STry b v c
 throwStmt = do
   reserved "throw"
-  e <- expr
-  return $ SThrow e
+  e <- stringLiteral
+  return $ SThrow $ e
 
 
 
