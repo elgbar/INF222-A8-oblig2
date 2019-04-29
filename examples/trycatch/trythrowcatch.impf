@@ -1,0 +1,5 @@
+try{
+    throw "uh-oh"
+}catch (e){
+    println e
+}

@@ -47,8 +47,8 @@ statement =
   whileStmt <|>
   block <|>
   returnStmt <|>
--- FIXME: tryStmt <|>
--- FIXME: throwStmt <|>
+  tryStmt <|>
+  throwStmt <|>
 
   varDeclStmt <|>
   assignStmt <|>
@@ -86,8 +86,20 @@ returnStmt = do
   reserved "return"
   return $ SReturn
   
--- FIXME tryStmt = ...
--- FIXME throwStmt = ...
+tryStmt = do
+  reserved "try"
+  try <- block
+  reserved "catch"
+  i <- parens identifier
+  catch <- block
+  return $ STryCatch try i catch
+throwStmt = do
+  reserved "throw"
+  e <- expr
+  return $ SThrow e
+
+
+
 exprStmt = do
   e <- expr
   semi

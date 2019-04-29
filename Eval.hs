@@ -7,6 +7,7 @@ import Debug.Trace (trace)
 
 import Control.Monad
 import Data.IORef
+import Data.Maybe
 
 addVar :: String -> Value -> Env -> Env
 addVar s v env = (s, v):env
@@ -105,6 +106,8 @@ step (SReturn, env, ctx) = do
                 Just oenv -> oenv
                 Nothing -> error ("No environment found to return to " ++ (printInfo env octx))
   return (SSkip, oenv, octx)
+
+step (STryCatch b v c, env, ctx) = return (b, addVar v , ECall (HoleWithEnv env) [] vs: ctx) 
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
 step (e, env, ctx) = error $ "Stuck at expression: " ++ show e ++ (printInfo env ctx)

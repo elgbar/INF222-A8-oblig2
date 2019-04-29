@@ -12,6 +12,8 @@ data Ast =
   | SVarDecl String Expr
   | SExpr Expr
   | SReturn
+  | STryCatch Stmt String Stmt
+  | SThrow Expr
 
   | EVal Value
   | EVar String
@@ -33,6 +35,8 @@ instance Show Ast where
   show (SVarDecl s e) = "SVarDecl "++s++"="++show e
   show (SExpr e) = "SExpr {"++show e++"}"
   show (SReturn) = "SReturn"
+  show (STryCatch s1 v s2) = "try "++""++"catch"
+  show (SThrow e) = "throw"
 
   show (EVal v) = "EVal "++show v
   show (EVar str) = "EVar "++str
