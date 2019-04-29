@@ -103,25 +103,20 @@ step (SReturn, env, ctx) = do
   let octx = dropWhile (\e -> noEnv e) ctx
   let oenv = case (firstEnv octx) of
                 Just oenv -> oenv
-                Nothing -> error ("No environment found to return to "++(printInfo env octx))
+                Nothing -> error ("No environment found to return to " ++ (printInfo env octx))
   return (SSkip, oenv, octx)
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
 step (e, env, ctx) = error $ "Stuck at expression: " ++ show e ++ (printInfo env ctx)
 
 
-
 noEnv :: Ctx -> Bool
-noEnv a = case firstEnv [a] of
-  Just _ -> False
-  Nothing -> True
+noEnv a = isNothing (firstEnv [a])
 
 firstEnv :: [Ctx] -> Maybe Env
 firstEnv [] = Nothing
-firstEnv (a:as) = case a of
-                    ECall (HoleWithEnv e) _ _ -> Just e
-                    SBlock e -> firstEnv [e]
-                    otherwise -> firstEnv as
+firstEnv (ECall (HoleWithEnv e) _ _:as) = Just e
+firstEnv (_:as) = firstEnv as
 
 printInfo :: Env -> [Ctx] -> String
 printInfo env ctx = "\n\nEnvironment: "  ++ show (remPrimEnv env) ++ "\n\nContext: " ++ show ctx ++"\n\n"
