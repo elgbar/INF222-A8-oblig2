@@ -100,13 +100,28 @@ step (v, env, ECall f (Hole:args) vs : ctx) | isValue v = return (ECall f args (
 -- return
 -- step (SReturn, _, SBlock (HoleWithEnv env) : ctx) = return (SSkip, env, ctx) -- restore environment when block closes
 step (SReturn, env, ctx) = do
-  let octx = dropWhile (\e -> do -- remove everything till we get to a HoleWithEnv
-                      case e of
-                        SBlock (HoleWithEnv oenv) ->  False
-                        _ ->  True) ctx
-  let SBlock (HoleWithEnv oenv) = head octx
+  let octx = dropWhile (\e -> noEnv e) ctx
+  let oenv = case (firstEnv octx) of
+                Just oenv -> oenv
+                Nothing -> error ("No environment found to return to "++(printInfo env octx))
   return (SSkip, oenv, octx)
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
-step (e, env, ctx) = error $ "Stuck at expression: " ++ show e ++ "\n\nEnvironment: "
-                     ++ show (remPrimEnv env) ++ "\n\nContext: " ++ show ctx ++"\n\n"
+step (e, env, ctx) = error $ "Stuck at expression: " ++ show e ++ (printInfo env ctx)
+
+
+
+noEnv :: Ctx -> Bool
+noEnv a = case firstEnv [a] of
+  Just _ -> False
+  Nothing -> True
+
+firstEnv :: [Ctx] -> Maybe Env
+firstEnv [] = Nothing
+firstEnv (a:as) = case a of
+                    ECall (HoleWithEnv e) _ _ -> Just e
+                    SBlock e -> firstEnv [e]
+                    otherwise -> firstEnv as
+
+printInfo :: Env -> [Ctx] -> String
+printInfo env ctx = "\n\nEnvironment: "  ++ show (remPrimEnv env) ++ "\n\nContext: " ++ show ctx ++"\n\n"

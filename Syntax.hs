@@ -25,19 +25,19 @@ data Ast =
 
 instance Show Ast where
   show (SSkip) = "SSkip"
-  show (SIf e s1 s2) = "SIf "++show e++ "?" ++show s1++ ":" ++show s2
-  show (SWhile e stm) = "SWhile "++show e++" {" ++show stm++"}"
-  show (SBlock stm) = "SBlock "++show stm
-  show (SSeq s1 s2) = "SSeq " ++show s1 ++">>" ++show s2
+  show (SIf e s1 s2) = "SIf ("++show e++ ")?(" ++show s1++ "):(" ++show s2++")"
+  show (SWhile e stm) = "SWhile ("++show e++") {" ++show stm++"}"
+  show (SBlock stm) = "SBlock {"++show stm++"}"
+  show (SSeq s1 s2) = "SSeq {" ++show s1 ++"} >> {" ++show s2++"}"
   show (SAssign s e) = "SAssign "++s++"="++show e
   show (SVarDecl s e) = "SVarDecl "++s++"="++show e
-  show (SExpr e) = "SExpr "++show e
+  show (SExpr e) = "SExpr {"++show e++"}"
   show (SReturn) = "SReturn"
 
   show (EVal v) = "EVal "++show v
   show (EVar str) = "EVar "++str
-  show (EFun strs stm) = "EFun "++show strs ++" "++ show stm
-  show (ECall e es vs) = "ECall "++show e ++" "++ show es ++" "++show vs
+  show (EFun strs stm) = "EFun ("++show strs ++") {"++ show stm++"}"
+  show (ECall e es vs) = "ECall ("++show e ++") {"++ show es ++"} {"++show vs++"}"
   show (ERef e) = "ERef "++show e
   show (EDeref e) = "EDeref "++show e
 
@@ -74,7 +74,7 @@ instance Show Value where
   show (VString s) = s
   show (VRef _) = "ref"
   show (VVoid) = "void"
-  show (VClosure _ _ _) = "closure"
+  show (VClosure ss s e) = "closure {strs="++show ss++", stmt="++show s++", env="++show e++"}"
   show (VPrimFun _) = "prim-fun"
   show (VPrimFunIO _) = "prim-fun io"
 
