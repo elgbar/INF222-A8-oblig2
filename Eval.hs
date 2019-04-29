@@ -101,7 +101,7 @@ step (v, env, ECall f (Hole:args) vs : ctx) | isValue v = return (ECall f args (
 -- return
 -- step (SReturn, _, SBlock (HoleWithEnv env) : ctx) = return (SSkip, env, ctx) -- restore environment when block closes
 step (SReturn, env, ctx) = do
-  let octx = dropWhile (\e -> noEnv e) ctx
+  let octx = dropWhile (\e -> isNothing (firstEnv [e])) ctx
   let oenv = case (firstEnv octx) of
                 Just oenv -> oenv
                 Nothing -> error ("No environment found to return to " ++ (printInfo env octx))
@@ -111,10 +111,6 @@ step (STryCatch b v c, env, ctx) = return (b, addVar v , ECall (HoleWithEnv env)
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
 step (e, env, ctx) = error $ "Stuck at expression: " ++ show e ++ (printInfo env ctx)
-
-
-noEnv :: Ctx -> Bool
-noEnv a = isNothing (firstEnv [a])
 
 firstEnv :: [Ctx] -> Maybe Env
 firstEnv [] = Nothing
