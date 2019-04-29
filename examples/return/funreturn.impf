@@ -1,19 +1,21 @@
 var g = fun(){
     if(true){
       return;
+      println("after g return");
     }else{
     }
-    println("Returned only out of block g");
+    println("After block in g");
 };
 
 var f = fun () {
   if(true){
     g();
-    println("after f");
+    println("after g");
     return;
+    println("after f return");
   }else{
   }
-  println("Returned only out of block f");
+  println("after block in f");
 };
 
 
