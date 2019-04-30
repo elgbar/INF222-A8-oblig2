@@ -106,13 +106,12 @@ step (SReturn, env, ctx) = do
                 Nothing -> error ("No environment found to return to " ++ (printInfo env octx))
   return (SSkip, oenv, octx)
 
---addVar :: String -> Value -> Env -> Env
 -- throw , add the expr to the returning ctx
-          -- val  env          str blk [ctx]                       
-step (SThrow msg, env, (SCatch vnm cb):ctx) = return (cb, addVar vnm msg env, SReturn : ctx)
+step (SThrow msg, env, (SCatch vnm cb):ctx) = return (cb, addVar vnm msg env, SReturn : ctx) -- throwing execption, add the var to the returning env (this prob does not work)
 step (SThrow msg, env, ctx) = error $ "Exception thrown with no one to catch it or whats thrown is not a value \nmsg:"++show msg++ (printInfo env ctx)
 --try catch
-step (STry b v c, env, ctx) = return (b, env , SCatch v c:ctx) 
+step (STry b v c, env, ctx) = return (b, env , SCatch v c:ctx) -- entering a try block (TODO check if env needs to be evaled)
+step (SCatch var cb, env, ctx) = return (SSkip, env, ctx) -- nothing was thrown
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
 step (e, env, ctx) = error $ "Stuck at expression: " ++ show e ++ (printInfo env ctx)

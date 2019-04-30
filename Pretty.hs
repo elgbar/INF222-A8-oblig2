@@ -36,7 +36,7 @@ instance Pretty Ast where
   pp (EDeref e) = text "*" <> pp e
   pp (ERef e) = text "ref" <+> pp e
   pp (SThrow msg) = text "throw "<+> pp msg
-  --pp (SCatch var blk) = text "catch "<+> text var <+> pp blk
+  pp (SCatch var blk) = text "catch "<+> text var <+> pp blk
   pp (STry blk var cblk ) = text "try "<+> pp blk <+> text ("catch "++var) <+> pp cblk
 
 instance Pretty Value where
