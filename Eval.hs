@@ -99,7 +99,6 @@ step (ECall f (a:args) vs, env, ctx) | isValue f = return (a, env, ECall f (Hole
 step (v, env, ECall f (Hole:args) vs : ctx) | isValue v = return (ECall f args (expr2val v : vs), env, ctx)
 
 -- return
--- step (SReturn, _, SBlock (HoleWithEnv env) : ctx) = return (SSkip, env, ctx) -- restore environment when block closes
 step (SReturn, env, ctx) = do
   let octx = dropWhile (\e -> isNothing (firstEnv [e])) ctx
   let oenv = case (firstEnv octx) of
@@ -107,8 +106,10 @@ step (SReturn, env, ctx) = do
                 Nothing -> error ("No environment found to return to " ++ (printInfo env octx))
   return (SSkip, oenv, octx)
 
+--addVar :: String -> Value -> Env -> Env
 -- throw , add the expr to the returning ctx
-step (SThrow msg, env, SCatch vnm c:ctx) = return (c, addVar vnm msg env, SReturn : ctx)
+          -- val  env          str blk [ctx]                       
+step (SThrow msg, env, (SCatch vnm cb):ctx) = return (cb, addVar vnm msg env, SReturn : ctx)
 step (SThrow msg, env, ctx) = error $ "Exception thrown with no one to catch it or whats thrown is not a value \nmsg:"++show msg++ (printInfo env ctx)
 --try catch
 step (STry b v c, env, ctx) = return (b, env , SCatch v c:ctx) 

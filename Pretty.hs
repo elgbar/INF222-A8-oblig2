@@ -35,6 +35,9 @@ instance Pretty Ast where
   pp (ECall e es vs) = pp e <> text "(" <> (hcat $ punctuate comma ((map pp es) ++ (map pp vs))) <> text ")"
   pp (EDeref e) = text "*" <> pp e
   pp (ERef e) = text "ref" <+> pp e
+  pp (SThrow msg) = text "throw "<+> pp msg
+  --pp (SCatch var blk) = text "catch "<+> text var <+> pp blk
+  pp (STry blk var cblk ) = text "try "<+> pp blk <+> text ("catch "++var) <+> pp cblk
 
 instance Pretty Value where
   pp (VInt i) = integer $ toInteger i
