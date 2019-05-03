@@ -46,6 +46,7 @@ statement =
   ifStmt <|>
   whileStmt <|>
   block <|>
+  -- returnStmtVoid <|>
   returnStmt <|>
   -- tryStmt <|>
   -- throwStmt <|>
@@ -82,10 +83,16 @@ varDeclStmt = do
   e <- expr
   semi
   return $ SVarDecl i e
+
 returnStmt = do
   reserved "return"
-  e <- expr
+  e <- optionMaybe expr
+  semi
   return $ SReturn e
+-- returnStmtVoid = do
+--   reserved "return"
+--   semi
+--   return $ SReturn $ EVal VVoid
   
 -- tryStmt = do
 --   reserved "try"

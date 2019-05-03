@@ -100,14 +100,12 @@ step (ECall f (a:args) vs, env, ctx, dbg) | isValue f = return (a, env, ECall f 
 step (v, env, ECall f (Hole:args) vs : ctx, dbg) | isValue v = return (ECall f args (expr2val v : vs), env, ctx, dbg)
 
 -- return
-step (SReturn v, env, ctx, dbg) | isValue v = do
-  -- error $ "v "++show v
-  let octx =  dropWhile (\e -> isNothing (firstEnv [e])) ctx
-  let oenv = case firstEnv octx of
-                Just oenv -> oenv
-                Nothing -> error $ "No environment found to return to " ++ (printInfo env octx)
-  return (v, oenv, tail octx, dbg)
-step (SReturn v, env, ctx, dbg) = error $ "Cannot return a non-value " ++ show v ++ (printInfo env ctx)
+step (SReturn (Just v), env, ctx, dbg) | notValue v  = error $ "Cannot return a non-value " ++ show v ++ (printInfo env ctx)
+step (SReturn v, env, ctx, dbg) = 
+  let (oenv, octx) = escapeHole env ctx in
+  let val = case v of { Just va -> va; Nothing -> EVal VVoid} in
+  return (val, oenv, octx, dbg)
+
 
 -- throw , add the expr to the returning ctx
 -- step (SThrow msg, env, (SCatch vnm cb):ctx, dbg) = return (cb, addVar vnm msg env, SReturn : ctx, dbg) -- throwing execption, add the var to the returning env (this prob does not work)
@@ -118,6 +116,14 @@ step (SReturn v, env, ctx, dbg) = error $ "Cannot return a non-value " ++ show v
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
 step (e, env, ctx, dbg) = error $ "Stuck at expression: " ++ show e ++ (printInfo env ctx)
+
+escapeHole :: Env -> [Ctx] -> (Env, [Ctx])
+escapeHole env ctx = 
+                let octx = dropWhile (\e -> isNothing (firstEnv [e])) ctx in
+                let oenv = case firstEnv octx of
+                              Just e -> e
+                              Nothing -> error $ "No environment found to return to " ++ (printInfo env octx)
+                in (oenv, tail octx) 
 
 firstEnv :: [Ctx] -> Maybe Env
 firstEnv [] = Nothing
