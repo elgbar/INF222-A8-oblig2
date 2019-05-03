@@ -1,0 +1,5 @@
+var two = fun(){
+    return 2
+};
+var a = two();
+println(a);

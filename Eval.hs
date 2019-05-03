@@ -20,102 +20,104 @@ findVar s env = case lookup s env of
                   Just v -> v
                   Nothing -> error $ "failed to find var '"++s++"' in env "++show (remPrimEnv env)
 
-exec :: Ast -> IO ()
-exec e = steps (e, primitives, [])
+exec :: Ast -> Bool -> IO ()
+exec e d = steps (e, primitives, [], d)
 
-steps :: (Ast, Env, [Ctx]) -> IO ()
-steps (SSkip, _, []) = return ()
+steps :: (Ast, Env, [Ctx], Bool) -> IO ()
+steps (SSkip, _, [], dbg) = return ()
 steps st = step st >>= steps
 
-step :: (Ast, Env, [Ctx]) -> IO (Ast, Env, [Ctx])
--- step (ast, e, c) | trace ((show ast) ++ "\n--\n" ++ show c ++ "\n") False = undefined
+step :: (Ast, Env, [Ctx], Bool) -> IO (Ast, Env, [Ctx], Bool)
+step (ast, e, c, True) | trace ("evaluating ast: "++(show ast) ++ "\nIn the context: " ++ show c ++ "\n\n") False = undefined
 
 -- Statement expression: evaluate expression and turn into SSkip
-step (SExpr e, env, ctx) = return (e, env, SExpr Hole : ctx)
-step (v, env, SExpr Hole : ctx) | isValue v = return (SSkip, env, ctx)
+step (SExpr e, env, ctx,dbg) = return (e, env, SExpr Hole : ctx, dbg)
+step (v, env, SExpr Hole : ctx,dbg) | isValue v = return (SSkip, env, ctx, dbg)
 
 -- Blocks
-step (SBlock s, env, ctx) = return (s, env, (SBlock (HoleWithEnv env)) : ctx)
-step (SSkip, _, SBlock (HoleWithEnv env) : ctx) = return (SSkip, env, ctx) -- restore environment when block closes
+step (SBlock s, env, ctx,dbg) = return (s, env, (SBlock (HoleWithEnv env)) : ctx, dbg)
+step (SSkip, _, SBlock (HoleWithEnv env) : ctx, dbg) = return (SSkip, env, ctx, dbg) -- restore environment when block closes
 
 -- Sequences
-step (SSeq s1 s2, env, ctx) = return (s1, env, SSeq Hole s2 : ctx)
-step (SSkip, env, SSeq Hole s2 : ctx) = return (s2, env, ctx)
+step (SSeq s1 s2, env, ctx, dbg) = return (s1, env, SSeq Hole s2 : ctx, dbg)
+step (SSkip, env, SSeq Hole s2 : ctx, dbg) = return (s2, env, ctx, dbg)
 
 -- If and while
-step (SIf cond s1 s2, env, ctx) = return (cond, env, SIf Hole s1 s2 : ctx)
-step (EVal (VBool True), env, SIf Hole s1 _ : ctx) = return (SBlock s1, env, ctx)
-step (EVal (VBool False), env, SIf Hole _ s2 : ctx) = return (SBlock s2, env, ctx)
+step (SIf cond s1 s2, env, ctx, dbg) = return (cond, env, SIf Hole s1 s2 : ctx, dbg)
+step (EVal (VBool True), env, SIf Hole s1 _ : ctx, dbg) = return (SBlock s1, env, ctx, dbg)
+step (EVal (VBool False), env, SIf Hole _ s2 : ctx, dbg) = return (SBlock s2, env, ctx, dbg)
 
-step (w@(SWhile cond s), env, ctx) = return (SIf cond (SSeq s w) SSkip, env, ctx)
+step (w@(SWhile cond s), env, ctx, dbg) = return (SIf cond (SSeq s w) SSkip, env, ctx, dbg)
 
 -- Variable declaration
-step (SVarDecl s e, env, ctx) = return (e, env, SVarDecl s Hole : ctx)
-step (v, env, SVarDecl s Hole : ctx) | isValue v
-  = return (SSkip, addVar s (expr2val v) env, ctx)
+step (SVarDecl s e, env, ctx, dbg) = return (e, env, SVarDecl s Hole : ctx, dbg)
+step (v, env, SVarDecl s Hole : ctx, dbg) | isValue v
+  = return (SSkip, addVar s (expr2val v) env, ctx, dbg)
 
 -- Assignment
-step (SAssign s e, env, ctx) = return (e, env, SAssign s Hole : ctx)
-step (v, env, SAssign s Hole : ctx) | isValue v = do
+step (SAssign s e, env, ctx, dbg) = return (e, env, SAssign s Hole : ctx, dbg)
+step (v, env, SAssign s Hole : ctx, dbg) | isValue v = do
   case findVar s env of
-    (VRef nv) -> writeIORef nv (expr2val v) >> return (SSkip, env, ctx)
+    (VRef nv) -> writeIORef nv (expr2val v) >> return (SSkip, env, ctx, dbg)
     _ -> ioError $ userError $ "Trying to assign to a non-ref \"" ++ s ++ "\""
 
 
 -- Variable reference: get from environment
-step (EVar s, env, ctx) = return (EVal $ findVar s env, env, ctx)
+step (EVar s, env, ctx, dbg) = return (EVal $ findVar s env, env, ctx, dbg)
 
 -- Box a value
-step (ERef e, env, ctx) = return (e, env, ERef Hole : ctx)
-step (v, env, ERef Hole : ctx) | isValue v = do
+step (ERef e, env, ctx, dbg) = return (e, env, ERef Hole : ctx, dbg)
+step (v, env, ERef Hole : ctx, dbg) | isValue v = do
   nv <- newIORef (expr2val v)
-  return (EVal (VRef nv), env, ctx)
+  return (EVal (VRef nv), env, ctx, dbg)
 
 -- Dereference a ref
-step (EDeref e, env, ctx) = return (e, env, EDeref Hole : ctx)
-step (v, env, EDeref Hole : ctx) | isValue v = do
+step (EDeref e, env, ctx, dbg) = return (e, env, EDeref Hole : ctx, dbg)
+step (v, env, EDeref Hole : ctx, dbg) | isValue v = do
   let (VRef nv) = expr2val v
   v' <- readIORef nv
-  return $ (EVal v', env, ctx)
+  return $ (EVal v', env, ctx, dbg)
 
 -- Function becomes a closure
-step (EFun pars body, env, ctx) = return (EVal $ VClosure pars body env, env, ctx)
+step (EFun pars body, env, ctx, dbg) = return (EVal $ VClosure pars body env, env, ctx, dbg)
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
-step (ECall (EVal (VClosure pars s cloEnv)) [] vs, env, ctx) = do
-  return (s, addVars pars (reverse vs) cloEnv, ECall (HoleWithEnv env) [] vs: ctx)
-step (SSkip, _, ECall (HoleWithEnv env) _ _ : ctx) = return (EVal VVoid, env, ctx)
+step (ECall (EVal (VClosure pars s cloEnv)) [] vs, env, ctx, dbg) = do
+  return (s, addVars pars (reverse vs) cloEnv, ECall (HoleWithEnv env) [] vs: ctx, dbg)
+step (SSkip, _, ECall (HoleWithEnv env) _ _ : ctx, dbg) = return (EVal VVoid, env, ctx, dbg)
   -- function body fully evaluated, return VVoid
 
-step (ECall (EVal (VPrimFun f)) [] vs, env, ctx) = do
-  return (EVal $ f (reverse vs), env, ctx)
-step (ECall (EVal (VPrimFunIO f)) [] vs, env, ctx) = do
+step (ECall (EVal (VPrimFun f)) [] vs, env, ctx, dbg) = do
+  return (EVal $ f (reverse vs), env, ctx, dbg)
+step (ECall (EVal (VPrimFunIO f)) [] vs, env, ctx, dbg) = do
   res  <- f (reverse vs)
-  return (EVal res, env, ctx)
-step (ECall f [] _, _, _) | isValue f = error $ "a call to non-function " ++ show f
+  return (EVal res, env, ctx, dbg)
+step (ECall f [] _, _, _,_) | isValue f = error $ "a call to non-function " ++ show f
 -- Reduce on function position
-step (ECall f args [], env, ctx) | notValue f = return (f, env, ECall Hole args [] : ctx)
-step (f, env, ECall Hole args [] : ctx) | isValue f = return (ECall f args [], env, ctx)
-step (ECall f (a:args) vs, env, ctx) | isValue f = return (a, env, ECall f (Hole:args) vs : ctx)
-step (v, env, ECall f (Hole:args) vs : ctx) | isValue v = return (ECall f args (expr2val v : vs), env, ctx)
+step (ECall f args [], env, ctx, dbg) | notValue f = return (f, env, ECall Hole args [] : ctx, dbg)
+step (f, env, ECall Hole args [] : ctx, dbg) | isValue f = return (ECall f args [], env, ctx, dbg)
+step (ECall f (a:args) vs, env, ctx, dbg) | isValue f = return (a, env, ECall f (Hole:args) vs : ctx, dbg)
+step (v, env, ECall f (Hole:args) vs : ctx, dbg) | isValue v = return (ECall f args (expr2val v : vs), env, ctx, dbg)
 
 -- return
-step (SReturn, env, ctx) = do
-  let octx = dropWhile (\e -> isNothing (firstEnv [e])) ctx
-  let oenv = case (firstEnv octx) of
+step (SReturn v, env, ctx, dbg) | isValue v = do
+  -- error $ "v "++show v
+  let octx =  dropWhile (\e -> isNothing (firstEnv [e])) ctx
+  let oenv = case firstEnv octx of
                 Just oenv -> oenv
-                Nothing -> error ("No environment found to return to " ++ (printInfo env octx))
-  return (SSkip, oenv, octx)
+                Nothing -> error $ "No environment found to return to " ++ (printInfo env octx)
+  return (v, oenv, tail octx, dbg)
+step (SReturn v, env, ctx, dbg) = error $ "Cannot return a non-value " ++ show v ++ (printInfo env ctx)
 
 -- throw , add the expr to the returning ctx
-step (SThrow msg, env, (SCatch vnm cb):ctx) = return (cb, addVar vnm msg env, SReturn : ctx) -- throwing execption, add the var to the returning env (this prob does not work)
-step (SThrow msg, env, ctx) = error $ "Exception thrown with no one to catch it or whats thrown is not a value \nmsg:"++show msg++ (printInfo env ctx)
---try catch
-step (STry b v c, env, ctx) = return (b, env , SCatch v c:ctx) -- entering a try block (TODO check if env needs to be evaled)
-step (SCatch var cb, env, ctx) = return (SSkip, env, ctx) -- nothing was thrown
+-- step (SThrow msg, env, (SCatch vnm cb):ctx, dbg) = return (cb, addVar vnm msg env, SReturn : ctx, dbg) -- throwing execption, add the var to the returning env (this prob does not work)
+-- step (SThrow msg, env, ctx, dbg) = error $ "Exception thrown with no one to catch it or whats thrown is not a value \nmsg:"++show msg++ (printInfo env ctx, dbg)
+-- --try catch
+-- step (STry b v c, env, ctx, dbg) = return (b, env , SCatch v c:ctx, dbg) -- entering a try block (TODO check if env needs to be evaled)
+-- step (SCatch var cb, env, ctx, dbg) = return (SSkip, env, ctx, dbg) -- nothing was thrown
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
-step (e, env, ctx) = error $ "Stuck at expression: " ++ show e ++ (printInfo env ctx)
+step (e, env, ctx, dbg) = error $ "Stuck at expression: " ++ show e ++ (printInfo env ctx)
 
 firstEnv :: [Ctx] -> Maybe Env
 firstEnv [] = Nothing

@@ -6,5 +6,5 @@ var f = fun () {
   println("Returned only out of block");
 };
 
-f();
+var a = f();
 println("Returned fully");

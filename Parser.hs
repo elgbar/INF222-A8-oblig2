@@ -47,8 +47,8 @@ statement =
   whileStmt <|>
   block <|>
   returnStmt <|>
-  tryStmt <|>
-  throwStmt <|>
+  -- tryStmt <|>
+  -- throwStmt <|>
 
   varDeclStmt <|>
   assignStmt <|>
@@ -84,19 +84,20 @@ varDeclStmt = do
   return $ SVarDecl i e
 returnStmt = do
   reserved "return"
-  return $ SReturn
+  e <- expr
+  return $ SReturn e
   
-tryStmt = do
-  reserved "try"
-  b <- block
-  reserved "catch"
-  v <- parens identifier
-  c <- block
-  return $ STry b v c
-throwStmt = do
-  reserved "throw"
-  e <- stringLiteral
-  return $ SThrow $ e
+-- tryStmt = do
+--   reserved "try"
+--   b <- block
+--   reserved "catch"
+--   v <- parens identifier
+--   c <- block
+--   return $ STry b v c
+-- throwStmt = do
+--   reserved "throw"
+--   e <- stringLiteral
+--   return $ SThrow $ e
 
 
 
