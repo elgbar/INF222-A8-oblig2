@@ -16,8 +16,9 @@ addVars :: [String] -> [Value] -> Env -> Env
 addVars ss vs env = zip ss vs ++ env
 
 findVar :: String -> Env -> Value
-findVar s env =
-  let (Just v) = lookup s env in v -- assumes that a variable is always found
+findVar s env = case lookup s env of
+                  Just v -> v
+                  Nothing -> error $ "failed to find var '"++s++"' in env "++show (remPrimEnv env)
 
 exec :: Ast -> IO ()
 exec e = steps (e, primitives, [])
