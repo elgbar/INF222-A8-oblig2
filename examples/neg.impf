@@ -1,0 +1,3 @@
+var a = !true;
+println("false == ", a);
+println("-10 == ", -10);

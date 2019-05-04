@@ -3,6 +3,9 @@ module Primitive where
 import Syntax
 import Control.Monad
 primitives = [
+  ("__u-", VPrimFun $ \[VInt x] -> VInt $ -x),
+  ("__u!", VPrimFun $ \[VBool x] -> VBool $ not x),
+
   ("__b+", VPrimFun $ \[VInt x, VInt y] -> VInt $ x + y),
   ("__b-", VPrimFun $ \[VInt x, VInt y] -> VInt $ x - y),
   ("__b*", VPrimFun $ \[VInt x, VInt y] -> VInt $ x * y),

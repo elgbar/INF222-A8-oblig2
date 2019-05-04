@@ -119,9 +119,11 @@ relation = do
   l <- summation
   (anyBinOp (words "== != < <= > >=") >>= \o -> summation >>= \r -> return $ o l r) <|> return l
 summation = term `chainl1` anyBinOp (words "+ -")
-term = factor `chainl1` anyBinOp (words "* / %")
+term = neg `chainl1` anyBinOp (words "* / %") 
+neg = (anyUnaOp (words "! -") >>= \o -> factor >>= \r -> return $ o r) <|> factor
+
 factor = literal <|> fun <|> atomicOrCall <|> ref
-literal = intLiteral <|> boolLiteral "false" False <|> boolLiteral "true" True <|> stringLiteral
+literal = intLiteral <|> boolLiteral "false" False <|> boolLiteral "true" True <|> stringLiteral 
 
 intLiteral = natural >>= \i -> return $ EVal (VInt (fromInteger i))
 boolLiteral s v = reserved s >> (return $ EVal (VBool v))
@@ -131,8 +133,10 @@ ref = reserved "ref" >> factor >>= \e -> return $ ERef e
 deref = reservedOp "*" >> atomic >>= \e -> return $ EDeref e
 
 binOp s = reservedOp s >> (return $ (\a b -> ECall (EVar ("__b" ++ s)) [a, b] []))
+unaOp s = reservedOp s >> (return $ (\a -> ECall (EVar ("__u" ++ s)) [a] []))
 
 anyBinOp ops = foldl1 (<|>) (map binOp ops)
+anyUnaOp ops = foldl1 (<|>) (map unaOp ops)
 
 fun = do
   reserved "fun"
