@@ -1,0 +1,6 @@
+var max = fun (a, b) {
+  if(a > b) return a; else return b;
+};
+
+println(max(3,1));
+println(max(1,2));

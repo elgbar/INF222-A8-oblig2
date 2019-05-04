@@ -1,6 +1,7 @@
 var f = fun () {
   if(true){
     return;
+    return;
   }else{
   }
   println("Returned only out of block");

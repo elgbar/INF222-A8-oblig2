@@ -1,0 +1,18 @@
+var abs= fun(a){
+    if (a < 0) return a - (2*a); else return a; 
+};
+
+var max = fun (a, b) {
+  if(a > b) return a; else return b;
+};
+
+var neg = fun (a){
+  return a - a - a;
+};
+
+var a = neg(5);
+
+println("abs(", a, ") => ", abs(a));
+
+println(max(3,1));
+println(max(1,2));

@@ -31,11 +31,11 @@ step :: (Ast, Env, [Ctx], Bool) -> IO (Ast, Env, [Ctx], Bool)
 step (ast, e, c, True) | trace ("evaluating ast: "++(show ast) ++ "\nIn the context: " ++ show c ++ "\n\n") False = undefined
 
 -- Statement expression: evaluate expression and turn into SSkip
-step (SExpr e, env, ctx,dbg) = return (e, env, SExpr Hole : ctx, dbg)
-step (v, env, SExpr Hole : ctx,dbg) | isValue v = return (SSkip, env, ctx, dbg)
+step (SExpr e, env, ctx, dbg) = return (e, env, SExpr Hole : ctx, dbg)
+step (v, env, SExpr Hole : ctx, dbg) | isValue v = return (SSkip, env, ctx, dbg)
 
 -- Blocks
-step (SBlock s, env, ctx,dbg) = return (s, env, (SBlock (HoleWithEnv env)) : ctx, dbg)
+step (SBlock s, env, ctx, dbg) = return (s, env, (SBlock (HoleWithEnv env)) : ctx, dbg)
 step (SSkip, _, SBlock (HoleWithEnv env) : ctx, dbg) = return (SSkip, env, ctx, dbg) -- restore environment when block closes
 
 -- Sequences
@@ -100,11 +100,15 @@ step (ECall f (a:args) vs, env, ctx, dbg) | isValue f = return (a, env, ECall f 
 step (v, env, ECall f (Hole:args) vs : ctx, dbg) | isValue v = return (ECall f args (expr2val v : vs), env, ctx, dbg)
 
 -- return
-step (SReturn (Just v), env, ctx, dbg) | notValue v  = error $ "Cannot return a non-value " ++ show v ++ (printInfo env ctx)
-step (SReturn v, env, ctx, dbg) = 
-  let (oenv, octx) = escapeHole env ctx in
-  let val = case v of { Just va -> va; Nothing -> EVal VVoid} in
+
+step (val@(EVal _), env, SReturn (Just Hole) : ctx, dbg) = return (SReturn (Just Hole), env, val:ctx,dbg)
+step (SReturn (Just Hole), env, v:ctx, dbg) | notValue v  = return (v, env, (SReturn (Just Hole)) : ctx, dbg) -- evaluate return expr to value (note/warn: what if never value?)
+step (SReturn (Just Hole), env, val : ctx, dbg) = -- must be value
+  let (oenv, octx) = escapeHole env ctx in -- find nearest escape (other env (note: maybe only find next hole?))
   return (val, oenv, octx, dbg)
+step (SReturn mv, env, ctx, dbg)  = -- initial evaluation, parse the maybe expr and put it on the stack/ctx
+  let val = case mv of { Just v -> v; Nothing -> EVal VVoid} in -- evaluate mv to either void or _something_
+  return (SReturn (Just Hole), env, val : (SReturn (Just Hole)):ctx, dbg) --put what to return (val) on the stack
 
 
 -- throw , add the expr to the returning ctx
@@ -118,17 +122,18 @@ step (SReturn v, env, ctx, dbg) =
 step (e, env, ctx, dbg) = error $ "Stuck at expression: " ++ show e ++ (printInfo env ctx)
 
 escapeHole :: Env -> [Ctx] -> (Env, [Ctx])
-escapeHole env ctx = 
-                let octx = dropWhile (\e -> isNothing (firstEnv [e])) ctx in
-                let oenv = case firstEnv octx of
-                              Just e -> e
-                              Nothing -> error $ "No environment found to return to " ++ (printInfo env octx)
-                in (oenv, tail octx) 
+escapeHole env ctx = do
+                let octx = dropWhile (\e -> isNothing (firstEnv [e])) ctx
+                let oenv = fromJust (firstEnv octx) --("No environment found to return to " ++ (printInfo env octx))
+                -- error $ ("No22 environment found to return to " ++ (printInfo env octx))
+                (oenv, tail octx)
+            
 
 firstEnv :: [Ctx] -> Maybe Env
 firstEnv [] = Nothing
-firstEnv (ECall (HoleWithEnv e) _ _:as) = Just e
-firstEnv (_:as) = firstEnv as
+-- firstEnv ((HoleWithEnv e):ctx) = Just e
+firstEnv (ECall (HoleWithEnv e) _ _: as) = Just e
+firstEnv (_:ctx) = firstEnv ctx
 
 printInfo :: Env -> [Ctx] -> String
 printInfo env ctx = "\n\nEnvironment: "  ++ show (remPrimEnv env) ++ "\n\nContext: " ++ show ctx ++"\n\n"
