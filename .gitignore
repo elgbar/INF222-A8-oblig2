@@ -2,3 +2,5 @@
 *.hi
 
 Main*
+
+*.code-workspace
