@@ -101,14 +101,12 @@ step (v, env, ECall f (Hole:args) vs : ctx, dbg) | isValue v = return (ECall f a
 
 -- return
 
-step (val@(EVal _), env, SReturn (Just Hole) : ctx, dbg) = return (SReturn (Just Hole), env, val:ctx,dbg)
-step (SReturn (Just Hole), env, v:ctx, dbg) | notValue v  = return (v, env, (SReturn (Just Hole)) : ctx, dbg) -- evaluate return expr to value (note/warn: what if never value?)
-step (SReturn (Just Hole), env, val : ctx, dbg) = -- must be value
+step (SReturn Hole, env, v:ctx, dbg) | notValue v  = return (v, env, ctx, dbg) -- evaluate return expr to value (note/warn: what if never value?)
+step (val@(EVal _), env, SReturn Hole : ctx, dbg) = -- must be value
   let (oenv, octx) = escapeHole env ctx in -- find nearest escape (other env (note: maybe only find next hole?))
   return (val, oenv, octx, dbg)
-step (SReturn mv, env, ctx, dbg)  = -- initial evaluation, parse the maybe expr and put it on the stack/ctx
-  let val = case mv of { Just v -> v; Nothing -> EVal VVoid} in -- evaluate mv to either void or _something_
-  return (SReturn (Just Hole), env, val : (SReturn (Just Hole)):ctx, dbg) --put what to return (val) on the stack
+step (SReturn val, env, ctx, dbg)  = -- initial evaluation, parse the maybe expr and put it on the stack/ctx
+  return (val, env, SReturn Hole : ctx, dbg) --put what to return (val) on the stack
 
 
 -- throw , add the expr to the returning ctx

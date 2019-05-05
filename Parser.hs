@@ -87,8 +87,9 @@ varDeclStmt = do
 returnStmt = do
   reserved "return"
   e <- optionMaybe expr
+  let val = case e of { Just v -> v; Nothing -> EVal VVoid}
   semi
-  return $ SReturn e
+  return $ SReturn val
 -- returnStmtVoid = do
 --   reserved "return"
 --   semi
