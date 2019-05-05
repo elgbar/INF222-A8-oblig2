@@ -100,13 +100,13 @@ step (ECall f (a:args) vs, env, ctx, dbg) | isValue f = return (a, env, ECall f 
 step (v, env, ECall f (Hole:args) vs : ctx, dbg) | isValue v = return (ECall f args (expr2val v : vs), env, ctx, dbg)
 
 -- return
-
 step (SReturn Hole, env, v:ctx, dbg) | notValue v  = return (v, env, ctx, dbg) -- evaluate return expr to value (note/warn: what if never value?)
 step (val@(EVal _), env, SReturn Hole : ctx, dbg) = -- must be value
   let (oenv, octx) = escapeHole env ctx in -- find nearest escape (other env (note: maybe only find next hole?))
   return (val, oenv, octx, dbg)
 step (SReturn val, env, ctx, dbg)  = -- initial evaluation, parse the maybe expr and put it on the stack/ctx
   return (val, env, SReturn Hole : ctx, dbg) --put what to return (val) on the stack
+step (EVal VVoid, env, ctx, dbg) = return (SSkip, env,ctx,dbg) --toplevel return (hopefully)
 
 
 -- throw , add the expr to the returning ctx
@@ -124,7 +124,7 @@ escapeHole env ctx = do
                 let octx = dropWhile (\e -> isNothing (firstEnv [e])) ctx
                 let oenv = fromJust (firstEnv octx) --("No environment found to return to " ++ (printInfo env octx))
                 -- error $ ("No22 environment found to return to " ++ (printInfo env octx))
-                (oenv, tail octx)
+                (oenv, if null octx then [] else tail octx)
             
 
 firstEnv :: [Ctx] -> Maybe Env
