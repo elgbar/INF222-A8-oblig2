@@ -41,7 +41,9 @@ instance Pretty Ast where
   pp (ERef e) = text "ref" <+> pp e
   pp (SThrow msg) = text "throw " <+> pp msg
   pp (STry blk var cblk) =
-    text "try " <+> pp blk <+> text ("catch " ++ var) <+> pp cblk
+    text "try {" $+$ nest 2 (pp blk) $+$ text "} catch(" <+> text var <+> text ") {" $+$ nest 2 (pp cblk) $+$ text "}"
+  pp (SImport fn) = text "import " <+> text fn
+  pp SEof = text "eof"
 
 instance Pretty Value where
   pp (VInt i)         = integer $ toInteger i
