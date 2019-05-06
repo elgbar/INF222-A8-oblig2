@@ -1,0 +1,1 @@
+throw fun (){ println("uuh"); };
