@@ -22,6 +22,8 @@ data Ast
   | EDeref Expr
   | Hole
   | HoleWithEnv Env
+  | SImport String
+  | SEof -- Skip to the end of the file
 
 type Stmt = Ast
 
@@ -62,6 +64,8 @@ instance Show Ast where
   show (EDeref e) = "EDeref " ++ show e
   show Hole = "Hole"
   show (HoleWithEnv e) = "HoleWithEnv " ++ show (remPrimEnv e)
+  show (SImport s) = "SImport "++show s
+  show SEof = "SEof"
 
 isValue, notValue :: Ast -> Bool
 isValue (EVal _) = True

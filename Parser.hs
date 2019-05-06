@@ -69,6 +69,7 @@ program = do
 statement =
   empty <|> ifStmt <|> whileStmt <|> block <|> returnStmt <|> tryStmt <|>
   throwStmt <|>
+  importStmt <|>
   varDeclStmt <|>
   assignStmt <|>
   exprStmt
@@ -132,6 +133,12 @@ throwStmt = do
   e <- expr
   semi
   return $ SThrow e
+
+importStmt = do
+  reserved "import"
+  fn <- stringlit
+  semi
+  return $ SImport $ fn++".impf"
 
 exprStmt = do
   e <- expr

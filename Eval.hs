@@ -1,13 +1,17 @@
 module Eval where
 
-import Syntax
 import Primitive
-import Pretty
 import Debug.Trace (trace)
 
-import Control.Monad
 import Data.IORef
 import Data.Maybe
+import System.IO.Unsafe 
+import Control.Monad      (when)
+import Data.Either
+import Parser
+import Pretty
+import Syntax
+import System.Environment (getArgs)
 
 addVar :: String -> Value -> Env -> Env
 addVar s v env = (s, v):env
@@ -18,15 +22,30 @@ addVars ss vs env = zip ss vs ++ env
 findVar :: String -> Env -> Value
 findVar s env = fromMaybe (error $ "failed to find var '" ++ s ++ "' in env " ++ show (remPrimEnv env)) (lookup s env)
 
-exec :: Ast -> Bool -> IO ()
+    -- content -> file -> verbose -> debug -> IO Env ->
+run :: String -> String -> Bool -> Bool-> IO Env
+run input fname verbose dbg = 
+  case parse program fname input of
+    Right v -> do
+      when verbose $ putStrLn $ pPrint v
+      exec v dbg
+    Left e -> print e >> error "Failed to parse file"
+
+
+exec :: Ast -> Bool -> IO Env
 exec e d = steps (e, primitives, [], d)
 
-steps :: (Ast, Env, [Ctx], Bool) -> IO ()
-steps (SSkip, _, [], dbg) = return ()
+steps :: (Ast, Env, [Ctx], Bool) -> IO Env
+steps (SSkip, env, [], dbg) = return env
 steps st = step st >>= steps
 
 step :: (Ast, Env, [Ctx], Bool) -> IO (Ast, Env, [Ctx], Bool)
-step (ast, e, c, True) | trace ("evaluating ast: "++ show ast ++ "\nIn the context: " ++ show c ++ "\n\n") False = undefined
+step (ast, e, c, True) | trace ("Evaluating ast: "++ show ast ++ "\n\nIn the context: " ++ show c ++"\n\nWith the Env: "++show (remPrimEnv e) ++"\n\n\n") False = undefined
+
+step (SImport fn, _, ctx, dbg) = do
+   s <- readFile fn
+   let env = unsafePerformIO $ run s fn dbg dbg -- should verbosity be passed to step?
+   return (SSkip, env, ctx, dbg) --it hurts me using the unsafeIO
 
 -- Statement expression: evaluate expression and turn into SSkip
 step (SExpr e, env, ctx, dbg) = return (e, env, SExpr Hole : ctx, dbg)
@@ -116,6 +135,9 @@ step (EVal v, env, SThrow Hole : ctx, dbg) = -- must be value
   let ((s, blk), octx) = escapeHole env ctx firstTry in -- find nearest escape (other env)
   return (blk, addVar s v env, octx, dbg)
 step (SSkip, env, STry (HoleWithEnv e) _ _:ctx, dbg) = return (SSkip, e, ctx, dbg) -- nothing was thrown
+
+
+step (SEof, env, ctx, dbg) = return (SSkip, env, [], dbg)
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
 step (e, env, ctx, dbg) = error $ "Stuck at expression: " ++ show e ++ printInfo env ctx

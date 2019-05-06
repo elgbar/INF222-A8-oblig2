@@ -1,12 +1,13 @@
 module Main where
 
-import           Control.Monad      (when)
-import           Data.Either
-import           Eval
-import           Parser
-import           Pretty
-import           Syntax
-import           System.Environment (getArgs)
+import Control.Monad      (when)
+import Data.Either
+import Eval
+import Parser
+import Pretty
+import Syntax
+import System.Environment (getArgs)
+
 
 main = do
   args <- getArgs
@@ -18,8 +19,6 @@ main = do
           then error "no filename"
           else head cleanedArgs
   input <- readFile fname
-  case parse program fname input of
-    Right v -> do
-      when verbose $ putStrLn $ pPrint v
-      exec v debug >> return ()
-    Left e -> print e
+  run input fname verbose debug
+  return ()
+
