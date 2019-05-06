@@ -1,0 +1,6 @@
+ try{
+   //your program here
+   throw "e";
+  }catch(ex){
+    println("uncaught exception: ", ex);
+}

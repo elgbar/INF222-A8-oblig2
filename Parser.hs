@@ -39,7 +39,7 @@ program = do
   whiteSpace
   ss <- many statement
   eof
-  return $ SBlock $ foldr SSeq SSkip ss
+  return $ STry (SBlock (foldr SSeq SSkip ss)) "__ex" (ECall (EVar "println") [EVal (VString "Uncaught exception: "), EVar "__ex"] [])
 
 statement =
   empty <|>
