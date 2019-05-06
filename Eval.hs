@@ -120,7 +120,7 @@ step (STry b v c, env, ctx, dbg) = return (b, env, STry (HoleWithEnv env) v c:ct
 step (EVal v, env, SThrow Hole : ctx, dbg) = -- must be value
   let ((s, blk), octx) = escapeHole env ctx firstTry in -- find nearest escape (other env (note: maybe only find next hole?))
   return (blk, addVar s v env, octx, dbg)
-step (STry (HoleWithEnv e) _ _, env, ctx, dbg) = return (SSkip, e, ctx, dbg) -- nothing was thrown
+step (SSkip, env, STry (HoleWithEnv e) _ _:ctx, dbg) = return (SSkip, e, ctx, dbg) -- nothing was thrown
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
 step (e, env, ctx, dbg) = error $ "Stuck at expression: " ++ show e ++ (printInfo env ctx)

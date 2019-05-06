@@ -1,0 +1,9 @@
+var fail = fun (){
+  try{
+
+  }catch(e){
+
+  }
+};
+
+fail();

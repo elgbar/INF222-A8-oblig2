@@ -8,11 +8,11 @@ var div = fun (t, n){
 
 var printDiv = fun (t,n){
   try {
-    // println(div(t, n));
-  }catch(a){
-    // println("error: ", e);
+    println(div(t, n));
+  }catch(e){
+    println("error: ", e);
   }
 };
 
-//printDiv(1, 0);
-printDiv(2, 2);
+printDiv(1, 0);
+printDiv(2, 1);
