@@ -16,9 +16,7 @@ addVars :: [String] -> [Value] -> Env -> Env
 addVars ss vs env = zip ss vs ++ env
 
 findVar :: String -> Env -> Value
-findVar s env = case lookup s env of
-                  Just v -> v
-                  Nothing -> error $ "failed to find var '"++s++"' in env "++show (remPrimEnv env)
+findVar s env = fromMaybe (error $ "failed to find var '" ++ s ++ "' in env " ++ show (remPrimEnv env)) (lookup s env)
 
 exec :: Ast -> Bool -> IO ()
 exec e d = steps (e, primitives, [], d)
@@ -28,14 +26,14 @@ steps (SSkip, _, [], dbg) = return ()
 steps st = step st >>= steps
 
 step :: (Ast, Env, [Ctx], Bool) -> IO (Ast, Env, [Ctx], Bool)
-step (ast, e, c, True) | trace ("evaluating ast: "++(show ast) ++ "\nIn the context: " ++ show c ++ "\n\n") False = undefined
+step (ast, e, c, True) | trace ("evaluating ast: "++ show ast ++ "\nIn the context: " ++ show c ++ "\n\n") False = undefined
 
 -- Statement expression: evaluate expression and turn into SSkip
 step (SExpr e, env, ctx, dbg) = return (e, env, SExpr Hole : ctx, dbg)
 step (v, env, SExpr Hole : ctx, dbg) | isValue v = return (SSkip, env, ctx, dbg)
 
 -- Blocks
-step (SBlock s, env, ctx, dbg) = return (s, env, (SBlock (HoleWithEnv env)) : ctx, dbg)
+step (SBlock s, env, ctx, dbg) = return (s, env, SBlock (HoleWithEnv env) : ctx, dbg)
 step (SSkip, _, SBlock (HoleWithEnv env) : ctx, dbg) = return (SSkip, env, ctx, dbg) -- restore environment when block closes
 
 -- Sequences
@@ -56,7 +54,7 @@ step (v, env, SVarDecl s Hole : ctx, dbg) | isValue v
 
 -- Assignment
 step (SAssign s e, env, ctx, dbg) = return (e, env, SAssign s Hole : ctx, dbg)
-step (v, env, SAssign s Hole : ctx, dbg) | isValue v = do
+step (v, env, SAssign s Hole : ctx, dbg) | isValue v = 
   case findVar s env of
     (VRef nv) -> writeIORef nv (expr2val v) >> return (SSkip, env, ctx, dbg)
     _ -> ioError $ userError $ "Trying to assign to a non-ref \"" ++ s ++ "\""
@@ -76,19 +74,17 @@ step (EDeref e, env, ctx, dbg) = return (e, env, EDeref Hole : ctx, dbg)
 step (v, env, EDeref Hole : ctx, dbg) | isValue v = do
   let (VRef nv) = expr2val v
   v' <- readIORef nv
-  return $ (EVal v', env, ctx, dbg)
+  return (EVal v', env, ctx, dbg)
 
 -- Function becomes a closure
 step (EFun pars body, env, ctx, dbg) = return (EVal $ VClosure pars body env, env, ctx, dbg)
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
-step (ECall (EVal (VClosure pars s cloEnv)) [] vs, env, ctx, dbg) = do
-  return (s, addVars pars (reverse vs) cloEnv, ECall (HoleWithEnv env) [] vs: ctx, dbg)
+step (ECall (EVal (VClosure pars s cloEnv)) [] vs, env, ctx, dbg) = return (s, addVars pars (reverse vs) cloEnv, ECall (HoleWithEnv env) [] vs: ctx, dbg)
 step (SSkip, _, ECall (HoleWithEnv env) _ _ : ctx, dbg) = return (EVal VVoid, env, ctx, dbg)
   -- function body fully evaluated, return VVoid
 
-step (ECall (EVal (VPrimFun f)) [] vs, env, ctx, dbg) = do
-  return (EVal $ f (reverse vs), env, ctx, dbg)
+step (ECall (EVal (VPrimFun f)) [] vs, env, ctx, dbg) = return (EVal $ f (reverse vs), env, ctx, dbg)
 step (ECall (EVal (VPrimFunIO f)) [] vs, env, ctx, dbg) = do
   res  <- f (reverse vs)
   return (EVal res, env, ctx, dbg)
@@ -108,37 +104,36 @@ step (SReturn val, env, ctx, dbg)  = -- initial evaluation, parse the maybe expr
   return (val, env, SReturn Hole : ctx, dbg) --put what to return (val) on the stack
 step (EVal VVoid, env, ctx, dbg) = return (SSkip, env,ctx,dbg) --toplevel return (hopefully)
 
---Throw (near copy of return)
+--Throw 
 step (SThrow Hole, env, v:ctx, dbg) | notValue v  = return (v, env, ctx, dbg) -- evaluate return expr to value (note/warn: what if never value?)
 step (SThrow val, env, ctx, dbg) = return (val, env, SThrow Hole : ctx, dbg) --eval expr to value before catching
 
 --Try
 step (STry b v c, env, ctx, dbg) = return (b, env, STry (HoleWithEnv env) v c:ctx, dbg) -- entering a try block
 --catch
--- step (SThrow (val@EVal _), env, STry Hole v c : ctx, dbg) = --something was thrown
-
+ 
 step (EVal v, env, SThrow Hole : ctx, dbg) = -- must be value
-  let ((s, blk), octx) = escapeHole env ctx firstTry in -- find nearest escape (other env (note: maybe only find next hole?))
+  let ((s, blk), octx) = escapeHole env ctx firstTry in -- find nearest escape (other env)
   return (blk, addVar s v env, octx, dbg)
 step (SSkip, env, STry (HoleWithEnv e) _ _:ctx, dbg) = return (SSkip, e, ctx, dbg) -- nothing was thrown
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
-step (e, env, ctx, dbg) = error $ "Stuck at expression: " ++ show e ++ (printInfo env ctx)
+step (e, env, ctx, dbg) = error $ "Stuck at expression: " ++ show e ++ printInfo env ctx
 
 escapeHole :: Env -> [Ctx] -> (Ctx -> Maybe a) -> (a, [Ctx])
 escapeHole env ctx f = do
-                let octx = dropWhile (\e -> isNothing (f e)) ctx
-                let ret = case f (head octx) of { Just e -> e; Nothing -> error ("Failed to escape hole")}
+                let octx = dropWhile (isNothing . f) ctx
+                let ret = fromMaybe (error "Failed to escape hole") (f (head octx))
                 (ret, if null octx then [] else tail octx)
 
-
+              
 firstCall :: Ctx -> Maybe Env
 firstCall (ECall (HoleWithEnv e) _ _) = Just e
 firstCall _ = Nothing
 
 firstTry :: Ctx -> Maybe (String, Stmt)
 firstTry (STry _ s cb) = Just (s, cb)
-firstTry _ = Nothing
+firstTry _ = Nothing 
 
 printInfo :: Env -> [Ctx] -> String
 printInfo env ctx = "\n\nEnvironment: "  ++ show (remPrimEnv env) ++ "\n\nContext: " ++ show ctx ++"\n\n"
