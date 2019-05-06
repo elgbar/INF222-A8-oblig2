@@ -1,0 +1,9 @@
+if(true){
+    println("if yh");
+}
+
+if(false){
+    throw "entered false!";
+} else {
+    println("else yh");
+}

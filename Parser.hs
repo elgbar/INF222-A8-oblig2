@@ -60,9 +60,13 @@ ifStmt = do
   reserved "if"
   e <- parens expr
   s1 <- statement
-  reserved "else"
-  s2 <- statement
+
+  el <- optionMaybe (reserved "else")
+  s2 <- case el of
+    Nothing -> return $ SIf e s1 SSkip
+    Just _ -> statement
   return $ SIf e s1 s2
+
 whileStmt = do
   reserved "while"
   e <- parens expr
