@@ -1,0 +1,18 @@
+var div = fun (t, n){
+  if(n == 0) {
+    throw "Cannot divide by 0";
+  } else {
+    return t / n;
+  }
+};
+
+var printDiv = fun (t,n){
+  try {
+    // println(div(t, n));
+  }catch(a){
+    // println("error: ", e);
+  }
+};
+
+//printDiv(1, 0);
+printDiv(2, 2);

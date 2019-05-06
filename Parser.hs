@@ -46,10 +46,10 @@ statement =
   ifStmt <|>
   whileStmt <|>
   block <|>
-  -- returnStmtVoid <|>
   returnStmt <|>
-  -- tryStmt <|>
-  -- throwStmt <|>
+  
+  tryStmt <|>
+  throwStmt <|>
 
   varDeclStmt <|>
   assignStmt <|>
@@ -90,22 +90,19 @@ returnStmt = do
   let val = case e of { Just v -> v; Nothing -> EVal VVoid}
   semi
   return $ SReturn val
--- returnStmtVoid = do
---   reserved "return"
---   semi
---   return $ SReturn $ EVal VVoid
-  
--- tryStmt = do
---   reserved "try"
---   b <- block
---   reserved "catch"
---   v <- parens identifier
---   c <- block
---   return $ STry b v c
--- throwStmt = do
---   reserved "throw"
---   e <- stringLiteral
---   return $ SThrow $ e
+
+tryStmt = do
+  reserved "try"
+  b <- block
+  reserved "catch"
+  v <- parens identifier
+  c <- block
+  return $ STry b v c
+throwStmt = do
+  reserved "throw"
+  e <- expr
+  semi
+  return $ SThrow $ e
 
 
 
@@ -120,11 +117,11 @@ relation = do
   l <- summation
   (anyBinOp (words "== != < <= > >=") >>= \o -> summation >>= \r -> return $ o l r) <|> return l
 summation = term `chainl1` anyBinOp (words "+ -")
-term = neg `chainl1` anyBinOp (words "* / %") 
+term = neg `chainl1` anyBinOp (words "* / %")
 neg = (anyUnaOp (words "! -") >>= \o -> factor >>= \r -> return $ o r) <|> factor
 
 factor = literal <|> fun <|> atomicOrCall <|> ref
-literal = intLiteral <|> boolLiteral "false" False <|> boolLiteral "true" True <|> stringLiteral 
+literal = intLiteral <|> boolLiteral "false" False <|> boolLiteral "true" True <|> stringLiteral
 
 intLiteral = natural >>= \i -> return $ EVal (VInt (fromInteger i))
 boolLiteral s v = reserved s >> (return $ EVal (VBool v))

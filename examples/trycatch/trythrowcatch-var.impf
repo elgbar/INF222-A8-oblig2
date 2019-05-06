@@ -1,0 +1,7 @@
+try{
+    var a = -123;
+    throw a;
+    println("nop");
+}catch (e){
+    println(e);
+}

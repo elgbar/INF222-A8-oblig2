@@ -26,8 +26,8 @@ instance Pretty Ast where
           seq2list s = [s]
   pp (SVarDecl s e) = text "var" <+> text s <+> text "=" <+> pp e <> text ";"
   pp (SAssign s e) = text s <+> text "=" <+> pp e <> text ";"
-  pp (SReturn v) = text "return " <+> pp v
   pp (SReturn (EVal VVoid)) = text "return"
+  pp (SReturn v) = text "return " <+> pp v
 
   pp (EVal v) = pp v
   pp (EVar s) = text s
@@ -37,7 +37,6 @@ instance Pretty Ast where
   pp (EDeref e) = text "*" <> pp e
   pp (ERef e) = text "ref" <+> pp e
   pp (SThrow msg) = text "throw "<+> pp msg
-  pp (SCatch var blk) = text "catch "<+> text var <+> pp blk
   pp (STry blk var cblk ) = text "try "<+> pp blk <+> text ("catch "++var) <+> pp cblk
 
 instance Pretty Value where

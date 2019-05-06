@@ -1,0 +1,6 @@
+try{
+    throw "uh-oh";
+    println("nop");
+}catch (e){
+    println(e);
+}

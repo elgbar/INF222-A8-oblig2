@@ -102,36 +102,43 @@ step (v, env, ECall f (Hole:args) vs : ctx, dbg) | isValue v = return (ECall f a
 -- return
 step (SReturn Hole, env, v:ctx, dbg) | notValue v  = return (v, env, ctx, dbg) -- evaluate return expr to value (note/warn: what if never value?)
 step (val@(EVal _), env, SReturn Hole : ctx, dbg) = -- must be value
-  let (oenv, octx) = escapeHole env ctx in -- find nearest escape (other env (note: maybe only find next hole?))
+  let (oenv, octx) = escapeHole env ctx firstCall in -- find nearest escape (other env (note: maybe only find next hole?))
   return (val, oenv, octx, dbg)
 step (SReturn val, env, ctx, dbg)  = -- initial evaluation, parse the maybe expr and put it on the stack/ctx
   return (val, env, SReturn Hole : ctx, dbg) --put what to return (val) on the stack
 step (EVal VVoid, env, ctx, dbg) = return (SSkip, env,ctx,dbg) --toplevel return (hopefully)
 
+--Throw (near copy of return)
+step (SThrow Hole, env, v:ctx, dbg) | notValue v  = return (v, env, ctx, dbg) -- evaluate return expr to value (note/warn: what if never value?)
+step (SThrow val, env, ctx, dbg) = return (val, env, SThrow Hole : ctx, dbg) --eval expr to value before catching
 
--- throw , add the expr to the returning ctx
--- step (SThrow msg, env, (SCatch vnm cb):ctx, dbg) = return (cb, addVar vnm msg env, SReturn : ctx, dbg) -- throwing execption, add the var to the returning env (this prob does not work)
--- step (SThrow msg, env, ctx, dbg) = error $ "Exception thrown with no one to catch it or whats thrown is not a value \nmsg:"++show msg++ (printInfo env ctx, dbg)
--- --try catch
--- step (STry b v c, env, ctx, dbg) = return (b, env , SCatch v c:ctx, dbg) -- entering a try block (TODO check if env needs to be evaled)
--- step (SCatch var cb, env, ctx, dbg) = return (SSkip, env, ctx, dbg) -- nothing was thrown
+--Try
+step (STry b v c, env, ctx, dbg) = return (b, env, STry (HoleWithEnv env) v c:ctx, dbg) -- entering a try block
+--catch
+-- step (SThrow (val@EVal _), env, STry Hole v c : ctx, dbg) = --something was thrown
+
+step (EVal v, env, SThrow Hole : ctx, dbg) = -- must be value
+  let ((s, blk), octx) = escapeHole env ctx firstTry in -- find nearest escape (other env (note: maybe only find next hole?))
+  return (blk, addVar s v env, octx, dbg)
+step (STry (HoleWithEnv e) _ _, env, ctx, dbg) = return (SSkip, e, ctx, dbg) -- nothing was thrown
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
 step (e, env, ctx, dbg) = error $ "Stuck at expression: " ++ show e ++ (printInfo env ctx)
 
-escapeHole :: Env -> [Ctx] -> (Env, [Ctx])
-escapeHole env ctx = do
-                let octx = dropWhile (\e -> isNothing (firstEnv [e])) ctx
-                let oenv = fromJust (firstEnv octx) --("No environment found to return to " ++ (printInfo env octx))
-                -- error $ ("No22 environment found to return to " ++ (printInfo env octx))
-                (oenv, if null octx then [] else tail octx)
-            
+escapeHole :: Env -> [Ctx] -> (Ctx -> Maybe a) -> (a, [Ctx])
+escapeHole env ctx f = do
+                let octx = dropWhile (\e -> isNothing (f e)) ctx
+                let ret = case f (head octx) of { Just e -> e; Nothing -> error ("Failed to escape hole")}
+                (ret, if null octx then [] else tail octx)
 
-firstEnv :: [Ctx] -> Maybe Env
-firstEnv [] = Nothing
--- firstEnv ((HoleWithEnv e):ctx) = Just e
-firstEnv (ECall (HoleWithEnv e) _ _: as) = Just e
-firstEnv (_:ctx) = firstEnv ctx
+
+firstCall :: Ctx -> Maybe Env
+firstCall (ECall (HoleWithEnv e) _ _) = Just e
+firstCall _ = Nothing
+
+firstTry :: Ctx -> Maybe (String, Stmt)
+firstTry (STry _ s cb) = Just (s, cb)
+firstTry _ = Nothing
 
 printInfo :: Env -> [Ctx] -> String
 printInfo env ctx = "\n\nEnvironment: "  ++ show (remPrimEnv env) ++ "\n\nContext: " ++ show ctx ++"\n\n"
