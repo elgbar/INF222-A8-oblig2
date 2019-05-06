@@ -20,7 +20,7 @@ addVars :: [String] -> [Value] -> Env -> Env
 addVars ss vs env = zip ss vs ++ env
 
 findVar :: String -> Env -> Value
-findVar s env = fromMaybe (error $ "failed to find var '" ++ s ++ "' in env " ++ show (remPrimEnv env)) (lookup s env)
+findVar s env = fromMaybe (error $ "failed to find var '" ++ s ++ "' in env " ++ showNoPrim env) (lookup s env)
 
     -- content -> file -> verbose -> debug -> IO Env ->
 run :: String -> String -> Bool -> Bool-> IO Env
@@ -40,7 +40,7 @@ steps (SSkip, env, [], dbg) = return env
 steps st = step st >>= steps
 
 step :: (Ast, Env, [Ctx], Bool) -> IO (Ast, Env, [Ctx], Bool)
-step (ast, e, c, True) | trace ("Evaluating ast: "++ show ast ++ "\n\nIn the context: " ++ show c ++"\n\nWith the Env: "++show (remPrimEnv e) ++"\n\n\n") False = undefined
+step (ast, e, c, True) | trace ("Evaluating ast: "++ show ast ++ "\n\nIn the context: " ++ show c ++"\n\nWith the Env: "++ showNoPrim e ++"\n\n\n") False = undefined
 
 step (SImport fn, _, ctx, dbg) = do
    s <- readFile fn
@@ -158,4 +158,4 @@ firstTry (STry _ s cb) = Just (s, cb)
 firstTry _ = Nothing 
 
 printInfo :: Env -> [Ctx] -> String
-printInfo env ctx = "\n\nEnvironment: "  ++ show (remPrimEnv env) ++ "\n\nContext: " ++ show ctx ++"\n\n"
+printInfo env ctx = "\n\nEnvironment: "  ++ showNoPrim env ++ "\n\nContext: " ++ show ctx ++"\n\n"

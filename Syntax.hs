@@ -63,7 +63,7 @@ instance Show Ast where
   show (ERef e) = "ERef " ++ show e
   show (EDeref e) = "EDeref " ++ show e
   show Hole = "Hole"
-  show (HoleWithEnv e) = "HoleWithEnv " ++ show (remPrimEnv e)
+  show (HoleWithEnv e) = "HoleWithEnv " ++ showNoPrim e
   show (SImport s) = "SImport "++show s
   show SEof = "SEof"
 
@@ -86,7 +86,7 @@ instance Show Value where
   show VVoid = "void"
   show (VClosure ss s e) =
     "closure {strs=" ++
-    show ss ++ ", stmt=" ++ show s ++ ", env=" ++ show (remPrimEnv e) ++ "}"
+    show ss ++ ", stmt=" ++ show s ++ ", env=" ++ showNoPrim e ++ "}"
   show (VPrimFun _) = "prim-fun"
   show (VPrimFunIO _) = "prim-fun io"
 
@@ -110,9 +110,5 @@ primitiveNames =
   , "println"
   ]
 
-remPrimEnv :: Env -> Env
-remPrimEnv [] = []
-remPrimEnv (e@(p, _):es) =
-  if p `elem` primitiveNames
-    then remPrimEnv es
-    else e : remPrimEnv es
+showNoPrim :: Env -> String 
+showNoPrim env = show $ filter (\(p,_) -> p `notElem` primitiveNames) env 
