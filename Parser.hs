@@ -97,10 +97,10 @@ returnStmt = do
 
 tryStmt = do
   reserved "try"
-  b <- block
+  b <- statement
   reserved "catch"
   v <- parens identifier
-  c <- block
+  c <- statement
   return $ STry b v c
 throwStmt = do
   reserved "throw"

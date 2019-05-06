@@ -75,9 +75,6 @@ notValue = not . isValue
 expr2val :: Expr -> Value
 expr2val (EVal v) = v
 
-val2expr :: Value -> Expr
-val2expr v = EVal v
-
 type Env = [(String, Value)]
 
 instance Show Value where
