@@ -77,7 +77,7 @@ block = do
   ss <- braces (many statement)
   return $ SBlock $ foldr SSeq SSkip ss
 assignStmt = do
-  i <- try ( identifier >>= \j -> reservedOp "=" >> return j )
+  i <- try (identifier >>= \j -> reservedOp "=" >> return j)
   e <- expr
   semi
   return $ SAssign i e
