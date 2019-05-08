@@ -14,16 +14,21 @@ data Ast
   | SReturn Expr
   | STry Stmt String Stmt
   | SThrow Expr
+  | SImport String
+  | SEof -- Skip to the end of the file
+
   | EVal Value
   | EVar String
   | EFun [String] Stmt
   | ECall Expr [Expr] [Value]
   | ERef Expr
   | EDeref Expr
+  | ESpawn Expr
+  | EDetach Expr
+  | EJoin Expr
+
   | Hole
   | HoleWithEnv Env
-  | SImport String
-  | SEof -- Skip to the end of the file
 
 type Stmt = Ast
 
@@ -110,5 +115,5 @@ primitiveNames =
   , "println"
   ]
 
-showNoPrim :: Env -> String 
-showNoPrim env = show $ filter (\(p,_) -> p `notElem` primitiveNames) env 
+showNoPrim :: Env -> String
+showNoPrim env = show $ filter (\(p,_) -> p `notElem` primitiveNames) env

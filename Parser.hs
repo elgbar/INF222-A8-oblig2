@@ -15,7 +15,7 @@ languageDef =
            , Token.commentLine     = "//"
            , Token.identStart      = letter
            , Token.identLetter     = alphaNum
-           , Token.reservedNames   = words "true false var if while fun ref return try catch reset shift spawn detach join import"
+           , Token.reservedNames   = words "true false var if while fun ref return try catch reset shift spawn detach join import int boolean string"
            , Token.reservedOpNames = words "+ - * / % == != < > <= >= && || ! ="
            }
 
@@ -47,7 +47,7 @@ statement =
   whileStmt <|>
   block <|>
   returnStmt <|>
-  
+
   tryStmt <|>
   throwStmt <|>
 
@@ -69,7 +69,7 @@ ifStmt = do
     Just _ -> statement
   return $ SIf e s1 s2
 
-whileStmt = do 
+whileStmt = do
   reserved "while"
   e <- parens expr
   SWhile e <$> statement
@@ -154,9 +154,18 @@ fun = do
 variable = identifier >>= return . EVar
 -- FIXME resetExpr = do ...
 -- FIXME shiftExpr = do ...
--- FIXME spawnExpr = do ...
--- FIXME detachExpr = do ...
--- FIXME joinExpr = do ...
+spawnExpr = do
+  reserved "spawn"
+  s <- parens statement
+  return $ ESpawn s
+detachExpr = do
+  reserved "detach"
+  tid <- parens intLiteral
+  return $ EDetach tid
+joinExpr = do
+  reserved "join"
+  tid <- parens intLiteral
+  return $ EJoin tid
 
 atomic = -- FIXME resetExpr <|> shiftExpr <|> spawnExpr <|> detachExpr <|> joinExpr <|>
          variable <|> parens expr <|> deref
