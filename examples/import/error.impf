@@ -1,0 +1,5 @@
+var error = fun (e){
+  println("!!! BEGIN ERROR !!!");
+  println("!!! ", e, " !!!");
+  println("!!!  END  ERROR !!!");
+};

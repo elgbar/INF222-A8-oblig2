@@ -5,7 +5,7 @@ import Debug.Trace (trace)
 
 import Data.IORef
 import Data.Maybe
-import System.IO.Unsafe 
+import System.IO.Unsafe
 import Control.Monad      (when)
 import Data.Either
 import Parser
@@ -24,7 +24,7 @@ findVar s env = fromMaybe (error $ "failed to find var '" ++ s ++ "' in env " ++
 
     -- content -> file -> verbose -> debug -> IO Env ->
 run :: String -> String -> Bool -> Bool-> IO Env
-run input fname verbose dbg = 
+run input fname verbose dbg =
   case parse program fname input of
     Right v -> do
       when verbose $ putStrLn $ pPrint v
@@ -41,11 +41,6 @@ steps st = step st >>= steps
 
 step :: (Ast, Env, [Ctx], Bool) -> IO (Ast, Env, [Ctx], Bool)
 step (ast, e, c, True) | trace ("Evaluating ast: "++ show ast ++ "\n\nIn the context: " ++ show c ++"\n\nWith the Env: "++ showNoPrim e ++"\n\n\n") False = undefined
-
-step (SImport fn, _, ctx, dbg) = do
-   s <- readFile fn
-   let env = unsafePerformIO $ run s fn dbg dbg -- should verbosity be passed to step?
-   return (SSkip, env, ctx, dbg) --it hurts me using the unsafeIO
 
 -- Statement expression: evaluate expression and turn into SSkip
 step (SExpr e, env, ctx, dbg) = return (e, env, SExpr Hole : ctx, dbg)
@@ -73,7 +68,7 @@ step (v, env, SVarDecl s Hole : ctx, dbg) | isValue v
 
 -- Assignment
 step (SAssign s e, env, ctx, dbg) = return (e, env, SAssign s Hole : ctx, dbg)
-step (v, env, SAssign s Hole : ctx, dbg) | isValue v = 
+step (v, env, SAssign s Hole : ctx, dbg) | isValue v =
   case findVar s env of
     (VRef nv) -> writeIORef nv (expr2val v) >> return (SSkip, env, ctx, dbg)
     _ -> ioError $ userError $ "Trying to assign to a non-ref \"" ++ s ++ "\""
@@ -123,21 +118,27 @@ step (SReturn val, env, ctx, dbg)  = -- initial evaluation, parse the maybe expr
   return (val, env, SReturn Hole : ctx, dbg) --put what to return (val) on the stack
 step (EVal VVoid, env, ctx, dbg) = return (SSkip, env,ctx,dbg) --toplevel return (hopefully)
 
---Throw 
+--Throw
 step (SThrow Hole, env, v:ctx, dbg) | notValue v  = return (v, env, ctx, dbg) -- evaluate return expr to value (note/warn: what if never value?)
 step (SThrow val, env, ctx, dbg) = return (val, env, SThrow Hole : ctx, dbg) --eval expr to value before catching
 
 --Try
 step (STry b v c, env, ctx, dbg) = return (b, env, STry (HoleWithEnv env) v c:ctx, dbg) -- entering a try block
 --catch
- 
+
 step (EVal v, env, SThrow Hole : ctx, dbg) = -- must be value
   let ((s, blk), octx) = escapeHole env ctx firstTry in -- find nearest escape (other env)
   return (blk, addVar s v env, octx, dbg)
 step (SSkip, env, STry (HoleWithEnv e) _ _:ctx, dbg) = return (SSkip, e, ctx, dbg) -- nothing was thrown
 
+-- import : replace import with this one
+step (SImport fn, oldEnv, ctx, dbg) = do
+   s <- readFile fn
+   let env = unsafePerformIO $ run s fn dbg dbg -- should verbosity be passed to step?
+   return (SSkip, oldEnv ++ env, ctx, dbg) --it hurts me using the unsafeIO
+step (SEof, env, ctx, dbg) = return (SSkip, env, [], dbg) -- reached end of file, its here to pass env after an import
 
-step (SEof, env, ctx, dbg) = return (SSkip, env, [], dbg)
+
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
 step (e, env, ctx, dbg) = error $ "Stuck at expression: " ++ show e ++ printInfo env ctx
@@ -148,14 +149,14 @@ escapeHole env ctx f = do
                 let ret = fromMaybe (error "Failed to escape hole") (f (head octx))
                 (ret, if null octx then [] else tail octx)
 
-              
+
 firstCall :: Ctx -> Maybe Env
 firstCall (ECall (HoleWithEnv e) _ _) = Just e
 firstCall _ = Nothing
 
 firstTry :: Ctx -> Maybe (String, Stmt)
 firstTry (STry _ s cb) = Just (s, cb)
-firstTry _ = Nothing 
+firstTry _ = Nothing
 
 printInfo :: Env -> [Ctx] -> String
 printInfo env ctx = "\n\nEnvironment: "  ++ showNoPrim env ++ "\n\nContext: " ++ show ctx ++"\n\n"
