@@ -72,109 +72,116 @@ steps frs dbg  = do
 
 
 step :: Frame -> [Frame] -> Bool -> IO [Frame]
-step (ast, e, c, fr, pr) _ True | trace ("Evaluating (frame "++show fr++", parent "++show pr++")\nast: "++ show ast ++ "\n\nctx: " ++ show c ++"\n\nWith the Env: "++ showNoPrim e ++"\n\n\n") False = undefined
+step (ast, e, c, fid, pfid) _ True | trace ("Evaluating (frame "++show fid++", parent "++show pfid++")\nast: "++ show ast ++ "\n\nctx: " ++ show c ++"\n\nWith the Env: "++ showNoPrim e ++"\n\n\n") False = undefined
 
 -- Statement expression: evaluate expression and turn into SSkip
-step (SExpr e, env, ctx, fr, pr) _ dbg  = return [(e, env, SExpr Hole : ctx, fr, pr)]
-step (v, env, SExpr Hole : ctx, fr, pr) _ dbg  | isValue v = return [(SSkip, env, ctx, fr, pr)]
+step (SExpr e, env, ctx, fid, pfid) _ dbg  = return [(e, env, SExpr Hole : ctx, fid, pfid)]
+step (v, env, SExpr Hole : ctx, fid, pfid) _ dbg  | isValue v = return [(SSkip, env, ctx, fid, pfid)]
 
 -- Blocks
-step (SBlock s, env, ctx, fr, pr) _ dbg  = return [(s, env, SBlock (HoleWithEnv env) : ctx, fr, pr)]
-step (SSkip, _, SBlock (HoleWithEnv env) : ctx, fr, pr) _ dbg  = return [(SSkip, env, ctx, fr, pr)] -- restore environment when block closes
+step (SBlock s, env, ctx, fid, pfid) _ dbg  = return [(s, env, SBlock (HoleWithEnv env) : ctx, fid, pfid)]
+step (SSkip, _, SBlock (HoleWithEnv env) : ctx, fid, pfid) _ dbg  = return [(SSkip, env, ctx, fid, pfid)] -- restore environment when block closes
 
 -- Sequences
-step (SSeq s1 s2, env, ctx, fr, pr) _ dbg  = return [(s1, env, SSeq Hole s2 : ctx, fr, pr)]
-step (SSkip, env, SSeq Hole s2 : ctx, fr, pr) _ dbg  = return [(s2, env, ctx, fr, pr)]
+step (SSeq s1 s2, env, ctx, fid, pfid) _ dbg  = return [(s1, env, SSeq Hole s2 : ctx, fid, pfid)]
+step (SSkip, env, SSeq Hole s2 : ctx, fid, pfid) _ dbg  = return [(s2, env, ctx, fid, pfid)]
 
 -- If and while
-step (SIf cond s1 s2, env, ctx, fr, pr) _ dbg  = return [(cond, env, SIf Hole s1 s2 : ctx, fr, pr)]
-step (EVal (VBool True), env, SIf Hole s1 _ : ctx, fr, pr) _ dbg  = return [(SBlock s1, env, ctx, fr, pr)]
-step (EVal (VBool False), env, SIf Hole _ s2 : ctx, fr, pr) _ dbg  = return [(SBlock s2, env, ctx, fr, pr)]
+step (SIf cond s1 s2, env, ctx, fid, pfid) _ dbg  = return [(cond, env, SIf Hole s1 s2 : ctx, fid, pfid)]
+step (EVal (VBool True), env, SIf Hole s1 _ : ctx, fid, pfid) _ dbg  = return [(SBlock s1, env, ctx, fid, pfid)]
+step (EVal (VBool False), env, SIf Hole _ s2 : ctx, fid, pfid) _ dbg  = return [(SBlock s2, env, ctx, fid, pfid)]
 
-step (w@(SWhile cond s), env, ctx, fr, pr) _ dbg  = return [(SIf cond (SSeq s w) SSkip, env, ctx, fr, pr)]
+step (w@(SWhile cond s), env, ctx, fid, pfid) _ dbg  = return [(SIf cond (SSeq s w) SSkip, env, ctx, fid, pfid)]
 
 -- Variable declaration
-step (SVarDecl s e, env, ctx, fr, pr) _ dbg  = return [(e, env, SVarDecl s Hole : ctx, fr, pr)]
-step (v, env, SVarDecl s Hole : ctx, fr, pr) _ dbg  | isValue v
-  = return [(SSkip, addVar s (expr2val v) env, ctx, fr, pr)]
+step (SVarDecl s e, env, ctx, fid, pfid) _ dbg  = return [(e, env, SVarDecl s Hole : ctx, fid, pfid)]
+step (v, env, SVarDecl s Hole : ctx, fid, pfid) _ dbg  | isValue v
+  = return [(SSkip, addVar s (expr2val v) env, ctx, fid, pfid)]
 
 -- Assignment
-step (SAssign s e, env, ctx, fr, pr) _ dbg  = return [(e, env, SAssign s Hole : ctx, fr, pr)]
-step (v, env, SAssign s Hole : ctx, fr, pr) _ dbg  | isValue v =
+step (SAssign s e, env, ctx, fid, pfid) _ dbg  = return [(e, env, SAssign s Hole : ctx, fid, pfid)]
+step (v, env, SAssign s Hole : ctx, fid, pfid) _ dbg  | isValue v =
   case findVar s env of
-    (VRef nv) -> writeIORef nv (expr2val v) >> return [(SSkip, env, ctx, fr, pr)]
+    (VRef nv) -> writeIORef nv (expr2val v) >> return [(SSkip, env, ctx, fid, pfid)]
     _ -> ioError $ userError $ "Trying to assign to a non-ref \"" ++ s ++ "\""
 
 
 -- Variable reference: get from environment
-step (EVar s, env, ctx, fr, pr) _ dbg  = return [(EVal $ findVar s env, env, ctx, fr, pr)]
+step (EVar s, env, ctx, fid, pfid) _ dbg  = return [(EVal $ findVar s env, env, ctx, fid, pfid)]
 
 -- Box a value
-step (ERef e, env, ctx, fr, pr) _ dbg  = return [(e, env, ERef Hole : ctx, fr, pr)]
-step (v, env, ERef Hole : ctx, fr, pr) _ dbg  | isValue v = do
+step (ERef e, env, ctx, fid, pfid) _ dbg  = return [(e, env, ERef Hole : ctx, fid, pfid)]
+step (v, env, ERef Hole : ctx, fid, pfid) _ dbg  | isValue v = do
   nv <- newIORef (expr2val v)
-  return [(EVal (VRef nv), env, ctx, fr, pr)]
+  return [(EVal (VRef nv), env, ctx, fid, pfid)]
 
 -- Dereference a ref
-step (EDeref e, env, ctx, fr, pr) _ dbg  = return [(e, env, EDeref Hole : ctx, fr, pr)]
-step (v, env, EDeref Hole : ctx, fr, pr) _ dbg  | isValue v = do
+step (EDeref e, env, ctx, fid, pfid) _ dbg  = return [(e, env, EDeref Hole : ctx, fid, pfid)]
+step (v, env, EDeref Hole : ctx, fid, pfid) _ dbg  | isValue v = do
   let (VRef nv) = expr2val v
   v' <- readIORef nv
-  return [(EVal v', env, ctx, fr, pr)]
+  return [(EVal v', env, ctx, fid, pfid)]
 
 -- Function becomes a closure
-step (EFun pars body, env, ctx, fr, pr) _ dbg  = return [(EVal $ VClosure pars body env, env, ctx, fr, pr)]
+step (EFun pars body, env, ctx, fid, pfid) _ dbg  = return [(EVal $ VClosure pars body env, env, ctx, fid, pfid)]
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
-step (ECall (EVal (VClosure pars s cloEnv)) [] vs, env, ctx, fr, pr) _ dbg  = return [(s, addVars pars (reverse vs) cloEnv, ECall (HoleWithEnv env) [] vs: ctx, fr, pr)]
-step (SSkip, _, ECall (HoleWithEnv env) _ _ : ctx, fr, pr) _ dbg  = return [(EVal VVoid, env, ctx, fr, pr)]
+step (ECall (EVal (VClosure pars s cloEnv)) [] vs, env, ctx, fid, pfid) _ dbg  = return [(s, addVars pars (reverse vs) cloEnv, ECall (HoleWithEnv env) [] vs: ctx, fid, pfid)]
+step (SSkip, _, ECall (HoleWithEnv env) _ _ : ctx, fid, pfid) _ dbg  = return [(EVal VVoid, env, ctx, fid, pfid)]
   -- function body fully evaluated, return VVoid
 
-step (ECall (EVal (VPrimFun f)) [] vs, env, ctx, fr, pr) _ dbg  = return [(EVal $ f (reverse vs), env, ctx, fr, pr)]
-step (ECall (EVal (VPrimFunIO f)) [] vs, env, ctx, fr, pr) _ dbg  = do
+step (ECall (EVal (VPrimFun f)) [] vs, env, ctx, fid, pfid) _ dbg  = return [(EVal $ f (reverse vs), env, ctx, fid, pfid)]
+step (ECall (EVal (VPrimFunIO f)) [] vs, env, ctx, fid, pfid) _ dbg  = do
   res  <- f (reverse vs)
-  return [(EVal res, env, ctx, fr, pr)]
+  return [(EVal res, env, ctx, fid, pfid)]
 step (ECall f [] _, _, _, _, _) _ _ | isValue f = error $ "a call to non-function " ++ show f
 -- Reduce on function posi tion
-step (ECall f args [], env, ctx, fr, pr) _ dbg  | notValue f = return [(f, env, ECall Hole args [] : ctx, fr, pr)]
-step (f, env, ECall Hole args [] : ctx, fr, pr) _ dbg  | isValue f = return [(ECall f args [], env, ctx, fr, pr)]
-step (ECall f (a:args) vs, env, ctx, fr, pr) _ dbg  | isValue f = return [(a, env, ECall f (Hole:args) vs : ctx, fr, pr)]
-step (v, env, ECall f (Hole:args) vs : ctx, fr, pr) _ dbg  | isValue v = return [(ECall f args (expr2val v : vs), env, ctx, fr, pr)]
+step (ECall f args [], env, ctx, fid, pfid) _ dbg  | notValue f = return [(f, env, ECall Hole args [] : ctx, fid, pfid)]
+step (f, env, ECall Hole args [] : ctx, fid, pfid) _ dbg  | isValue f = return [(ECall f args [], env, ctx, fid, pfid)]
+step (ECall f (a:args) vs, env, ctx, fid, pfid) _ dbg  | isValue f = return [(a, env, ECall f (Hole:args) vs : ctx, fid, pfid)]
+step (v, env, ECall f (Hole:args) vs : ctx, fid, pfid) _ dbg  | isValue v = return [(ECall f args (expr2val v : vs), env, ctx, fid, pfid)]
 
 -- return
-step (SReturn Hole, env, v:ctx, fr, pr) _ dbg  | notValue v  = return [(v, env, ctx, fr, pr)] -- evaluate return expr to value (note/warn: what if never value?)
-step (val@(EVal _), env, SReturn Hole : ctx, fr, pr) _ dbg  = -- must be value
+step (SReturn Hole, env, v:ctx, fid, pfid) _ dbg  | notValue v  = return [(v, env, ctx, fid, pfid)] -- evaluate return expr to value (note/warn: what if never value?)
+step (val@(EVal _), env, SReturn Hole : ctx, fid, pfid) _ dbg  = -- must be value
   let (oenv, octx) = escapeHole env ctx firstCall in -- find nearest escape (other env (note: maybe only find next hole?))
-  return [(val, oenv, octx, fr, pr)]
-step (SReturn val, env, ctx, fr, pr) _ dbg  = -- initial evaluation, parse the maybe expr and put it on the stack/ctx
-  return [(val, env, SReturn Hole : ctx, fr, pr)] --put what to return [(val) on the stack
-step (EVal VVoid, env, ctx, fr, pr) _ dbg  = return [(SSkip, env, ctx, fr, pr)] --toplevel return [(hopefully)
+  return [(val, oenv, octx, fid, pfid)]
+step (SReturn val, env, ctx, fid, pfid) _ dbg  = -- initial evaluation, parse the maybe expr and put it on the stack/ctx
+  return [(val, env, SReturn Hole : ctx, fid, pfid)] --put what to return (val) on the stack
+step (EVal VVoid, env, ctx, fid, pfid) _ dbg  = return [(SSkip, env, ctx, fid, pfid)] --toplevel return [(hopefully)
 
 --Throw
-step (SThrow Hole, env, v:ctx, fr, pr) _ dbg  | notValue v  = return [(v, env, ctx, fr, pr)] -- evaluate return expr to value (note/warn: what if never value?)
-step (SThrow val, env, ctx, fr, pr) _ dbg  = return [(val, env, SThrow Hole : ctx, fr, pr)] --eval expr to value before catching
+step (SThrow Hole, env, v:ctx, fid, pfid) _ dbg  | notValue v  = return [(v, env, ctx, fid, pfid)] -- evaluate return expr to value (note/warn: what if never value?)
+step (SThrow val, env, ctx, fid, pfid) _ dbg  = return [(val, env, SThrow Hole : ctx, fid, pfid)] --eval expr to value before catching
 
 --Try
-step (STry b v c, env, ctx, fr, pr) _ dbg  = return [(b, env, STry (HoleWithEnv env) v c:ctx, fr, pr)] -- entering a try block
+step (STry b v c, env, ctx, fid, pfid) _ dbg  = return [(b, env, STry (HoleWithEnv env) v c:ctx, fid, pfid)] -- entering a try block
 --catch
 
-step (EVal v, env, SThrow Hole : ctx, fr, pr) _ dbg  = -- must be value
+step (EVal v, env, SThrow Hole : ctx, fid, pfid) _ dbg  = -- must be value
   let ((s, blk), octx) = escapeHole env ctx firstTry in -- find nearest escape (other env)
-  return [(blk, addVar s v env, octx, fr, pr)]
-step (SSkip, env, STry (HoleWithEnv e) _ _:ctx, fr, pr) _ dbg = return [(SSkip, e, ctx, fr, pr)] -- nothing was thrown
+  return [(blk, addVar s v env, octx, fid, pfid)]
+step (SSkip, env, STry (HoleWithEnv e) _ _:ctx, fid, pfid) _ dbg = return [(SSkip, e, ctx, fid, pfid)] -- nothing was thrown
 
 -- import : replace import with this one
-step (SImport fn, oldEnv, ctx, fr, pr) _ dbg  = do
+step (SImport fn, oldEnv, ctx, fid, pfid) _ dbg  = do
    s <- readFile fn
    let env = unsafePerformIO $ run s fn dbg dbg -- should verbosity be passed to step?
-   return [(SSkip, oldEnv ++ env, ctx, fr, pr)] --it hurts me using the unsafeIO
-step (SEof, env, ctx, fr, pr) _ dbg  = return [(SSkip, env, [], fr, pr)] -- reached end of file, its here to pass env after an import
+   return [(SSkip, oldEnv ++ env, ctx, fid, pfid)] --it hurts me using the unsafeIO
+step (SEof, env, ctx, fid, pfid) _ dbg  = return [(SSkip, env, [], fid, pfid)] -- reached end of file, its here to pass env after an import
 
-step frame@(ESpawn e, env, ctx, fr, pr) frames dbg  = 
-  return [frame, (e, primitives, [], getNextId frames, fr)]
+step (ESpawn e, env, ctx, fid, pfid) frames dbg  = do
+  let nfid = getNextId frames
+  return [(EVal (VInt nfid), env, ctx, fid, pfid), (e, primitives, [], nfid, fid)]
+
+step (EDetach e, env, ctx, fid, pfid) frames dbg  = 
+  return [(SSkip, env, ctx, fid, 0)]
+
+-- step (EJoin e, env, ctx, fid, pfid) frames dbg  = 
+--   return [(SSkip, env, ctx, fid, 0)]
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
-step (e, env, ctx, fr, pr) _ dbg  = error $ "Stuck at expression: " ++ show e ++ printInfo env ctx
+step (e, env, ctx, fid, pfid) _ dbg  = error $ "Stuck at expression: " ++ show e ++ printInfo env ctx
 
 escapeHole :: Env -> [Ctx] -> (Ctx -> Maybe a) -> (a, [Ctx])
 escapeHole env ctx f = do

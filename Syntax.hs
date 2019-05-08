@@ -71,6 +71,9 @@ instance Show Ast where
   show (HoleWithEnv e) = "HoleWithEnv " ++ showNoPrim e
   show (SImport s) = "SImport "++show s
   show SEof = "SEof"
+  show (ESpawn e) = "ESpawn(" ++ show e ++ ")"
+  show (EDetach e) = "EDetach(" ++ show e ++ ")"
+  show (EJoin e) = "EJoin(" ++ show e ++ ")"
 
 isValue, notValue :: Ast -> Bool
 isValue (EVal _) = True

@@ -151,23 +151,26 @@ fun = do
   body <- block
   return $ EFun pars body
 
-variable = identifier >>= return . EVar
+variable = EVar <$> identifier
 -- FIXME resetExpr = do ...
 -- FIXME shiftExpr = do ...
-spawnExpr = do
+spawnExpr = do 
   reserved "spawn"
-  s <- parens statement
-  return $ ESpawn s
+  body <- statement
+  return $ ESpawn body
+
 detachExpr = do
   reserved "detach"
-  tid <- parens intLiteral
+  tid <- parens factor
   return $ EDetach tid
+
 joinExpr = do
   reserved "join"
-  tid <- parens intLiteral
+  tid <- parens factor
   return $ EJoin tid
 
-atomic = -- FIXME resetExpr <|> shiftExpr <|> spawnExpr <|> detachExpr <|> joinExpr <|>
+atomic = -- FIXME resetExpr <|> shiftExpr <|> 
+         spawnExpr <|> detachExpr <|> joinExpr <|>
          variable <|> parens expr <|> deref
 atomicOrCall = do
   a <- atomic

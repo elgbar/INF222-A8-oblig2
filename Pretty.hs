@@ -45,6 +45,10 @@ instance Pretty Ast where
   pp (SImport fn) = text "import " <+> text fn
   pp SEof = text "eof"
 
+  pp (ESpawn s) = text "spawn (" $+$ nest 2 (pp s) $$ text ")"
+  pp (EDetach e) = text "detach " <+> pp e
+  pp (EJoin e) = text "join " <+> pp e
+
 instance Pretty Value where
   pp (VInt i)         = integer $ toInteger i
   pp (VBool True)     = text "true"
