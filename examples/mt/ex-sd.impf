@@ -9,10 +9,9 @@ println("main thread starting");
 
 var tid1 = spawn {
     println("thread 1 starting");
-    loop(1000);
+    loop(1);
     println("thread 1 ending");
 };
-detach(tid1);
-
+// join(tid1);
 
 println("main thread ending");
