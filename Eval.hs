@@ -34,20 +34,20 @@ run input fname verbose dbg  =
 type Thread = (Ast, Env, [Ctx], Int, Int)
 
 getNextId :: [Thread] -> Int
-getNextId frames = foldl max 0 (map frameId frames) + 1 
+getNextId threads = foldl max 0 (map threadId threads) + 1 
 
-frameExists :: Int -> [Thread] -> Bool
-frameExists tid frames = tid `elem` map frameId frames
+threadExists :: Int -> [Thread] -> Bool
+threadExists tid threads = tid `elem` map threadId threads
 
-frameId :: Thread -> Int
-frameId (_, _, _, f, _) = f
+threadId :: Thread -> Int
+threadId (_, _, _, tid, _) = tid
 
 parentId :: Thread -> Int
-parentId (_, _, _, _, p) = p
+parentId (_, _, _, _, ptid) = ptid
 
--- getFrame :: Int -> [Thread] -> Thread
--- getFrame tid [] = error $ "Failed to find a thread with the ID "++tid
--- getFrame tid frames = 
+getThread :: Int -> [Thread] -> Thread
+getThread tid [] = error $ "Failed to find a thread with the ID "++tid
+getThread tid threads = head $ filter (tid == threadId) threads
 
 exec :: Ast -> Bool -> IO Env
 exec e = steps [(e, primitives, [], 0, 0)]
@@ -58,14 +58,15 @@ exec e = steps [(e, primitives, [], 0, 0)]
 concatMapM :: (a -> IO [a]) -> [a] -> IO [a]
 concatMapM f list = fmap concat (mapM f list)
 
-      -- frames to run -> frames ran, _ _ -> new state
+      -- threads to run -> threads ran, _ _ -> new state
 steps :: [Thread] -> Bool -> IO Env
 --fmap concat (
 steps frs dbg  = do
 
-    frames <- concatMapM (\f -> step f frs dbg) frs -- step in each thread
-    nonDead <- filterM (\f -> case f of {(SSkip, _, [], n, _) -> return $ n == 0 ; otherwise -> return True}) frames -- filter out ended frames
-    alive <- filterM (\f -> return $ frameExists (parentId f) nonDead) nonDead -- filter out frames where the parent has stopped
+    threads <- concatMapM (\f -> step f frs dbg) frs -- step in each thread
+    () <- getThread 0 threads
+    nonDead <- filterM (\f -> case f of {(SSkip, _, [], n, _) -> return $ n == 0 ; otherwise -> return True}) threads -- filter out ended threads
+    alive <- filterM (\f -> return $ threadExists (parentId f) nonDead) nonDead -- filter out threads where the parent has stopped
     case alive of
       [] -> error "No threads alive"
       [(SSkip, _, [], _, _)] -> error "Main thread not last alive"
@@ -174,20 +175,20 @@ step (SImport fn, oldEnv, ctx, tid, ptid) _ dbg = do
    return [(SSkip, oldEnv ++ env, ctx, tid, ptid)] --it hurts me using the unsafeIO
 step (SEof, env, ctx, tid, ptid) _ _ = return [(SSkip, env, [], tid, ptid)] -- reached end of file, its here to pass env after an import
 
-step (ESpawn e, env, ctx, tid, ptid) frames _  = do
-  let nfid = getNextId frames
+step (ESpawn e, env, ctx, tid, ptid) threads _  = do
+  let nfid = getNextId threads
   return [(EVal (VInt nfid), env, ctx, tid, ptid), (e, env, [], nfid, tid)]
 
 step (EDetach e, env, ctx, tid, ptid) _ _ | notValue e = return [(e, env, EDetach Hole : ctx, tid, ptid)] -- parse expr
-step (EVal (VInt n), env, EDetach Hole : ctx, tid, ptid) frames _ = --do
+step (EVal (VInt n), env, EDetach Hole : ctx, tid, ptid) threads _ = --do
   
-  --  alive <- mapM (\frm@(a,e,c,f,p) -> if f == n then (a,e,c,n,p) else frm) frames -- filter out frames where the parent has stopped
+  --  alive <- mapM (\frm@(a,e,c,f,p) -> if f == n then (a,e,c,n,p) else frm) threads -- filter out threads where the parent has stopped
    return [(SSkip, env, ctx, tid, 0)]
 step (EVal v, env, EDetach Hole : ctx, tid, ptid) _ _ = error "Thread ids can only be integers"
 
 step (EJoin e, env, ctx, tid, ptid) _ _ | notValue e = return [(e,env,EJoin Hole : ctx,tid,ptid)] -- parse expr
-step f@(EVal (VInt n), env, EJoin Hole : ctx, tid, ptid) frames _ | frameExists n frames = return [f] -- given thread id still exists so we continue to wait
-step (EVal (VInt n), env, EJoin Hole : ctx, tid, ptid) frames _ | not $ frameExists n frames = return [(SSkip, env, ctx, tid, ptid)]
+step f@(EVal (VInt n), env, EJoin Hole : ctx, tid, ptid) threads _ | threadExists n threads = return [f] -- given thread id still exists so we continue to wait
+step (EVal (VInt n), env, EJoin Hole : ctx, tid, ptid) threads _ | not $ threadExists n threads = return [(SSkip, env, ctx, tid, ptid)]
 step (EVal v, env, EJoin Hole : ctx, tid, ptid) _ _ = error "Thread ids can only be integers"
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
