@@ -1,0 +1,13 @@
+var tid = spawn {
+    throw "test";
+};
+join(tid);
+
+var tid2 = spawn {
+    try{
+        throw "test";
+    }catch(e){
+        println(e);
+    }
+};
+join(tid2);

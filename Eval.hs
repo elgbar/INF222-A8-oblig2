@@ -169,7 +169,7 @@ step ((SReturn val, env, ctx, tid, ptid) : ts) _ =  -- initial evaluation, parse
     return ((val, env, SReturn Hole : ctx, tid, ptid):ts) --put what to return (val) on the stack
 step ((EVal VVoid, env, ctx, tid, ptid) : ts) _ = return ((SSkip, env, ctx, tid, ptid):ts) --toplevel return ((hopefully)
 
---Throw
+  -- Throw
 step ((SThrow Hole, env, v:ctx, tid, ptid) : ts) _ | notValue v  = return ((v, env, ctx, tid, ptid):ts) -- evaluate return expr to value (note/warn: what if never value?)
 step ((SThrow val, env, ctx, tid, ptid) : ts) _ = return ((val, env, SThrow Hole : ctx, tid, ptid):ts) --eval expr to value before catching
 
@@ -203,6 +203,10 @@ step ((EJoin e, env, ctx, tid, ptid) : ts) _ | notValue e = return ((e, env, EJo
 step threads@(f@(EVal (VInt n), env, EJoin Hole : ctx, tid, ptid):ts) _ | threadExists n threads = return (f:ts) -- given thread id still exists so we continue to wait
 step threads@((EVal (VInt n), env, EJoin Hole : ctx, tid, ptid):ts) _ | not $ threadExists n threads = return ((EVal VVoid, env, ctx, tid, ptid):ts) --return as a void as this it is wrapped in an SExpr
 step ((EVal v, env, EJoin Hole : ctx, tid, ptid) : ts) _ = error "Thread ids can only be integers"
+
+
+ --if there are nothing more to parse ignore the return value as it cannot be used anyway
+step ((val, env, [], tid, ptid):ts) _| isValue val = return ((SSkip,env, [], tid, ptid):ts)
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
 step ((e, env, ctx, tid, ptid) : ts) _ = error $ "Stuck at expression: " ++ show e ++ printInfo env ctx

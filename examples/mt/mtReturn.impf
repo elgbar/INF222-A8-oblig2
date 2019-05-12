@@ -1,0 +1,5 @@
+var tid = spawn {
+    return 2;
+    println("FAIL");
+};
+join(tid);
