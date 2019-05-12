@@ -120,3 +120,6 @@ primitiveNames =
 
 showNoPrim :: Env -> String
 showNoPrim env = show $ filter (\(p,_) -> p `notElem` primitiveNames) env
+
+startupCode :: Expr -> Ast
+startupCode blk =  STry blk "__ex" (ECall (EVar "println") [EVal (VString "Uncaught exception: "), EVar "__ex"] [])

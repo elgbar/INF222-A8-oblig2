@@ -38,8 +38,8 @@ top = parse program
 program = do
   whiteSpace
   ss <- many statement
-  eof
-  return $ STry (foldr SSeq SEof ss) "__ex" (ECall (EVar "println") [EVal (VString "Uncaught exception: "), EVar "__ex"] [])
+  eof 
+  return $ startupCode (foldr SSeq SEof ss)
 
 statement =
   empty <|>

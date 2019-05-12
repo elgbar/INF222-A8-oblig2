@@ -46,8 +46,10 @@ parentId :: Thread -> Int
 parentId (_, _, _, _, ptid) = ptid
 
 getThread :: Int -> [Thread] -> Thread
-getThread tid [] = error $ "Failed to find a thread with the id "++show tid
-getThread tid threads = head $ filter (\t -> tid == threadId t) threads
+getThread tid threads = 
+  case filter (\t -> tid == threadId t) threads of 
+    [t] -> t
+    _ -> error $ "Failed to find a thread with the id " ++ show tid
 
 eqThread :: Thread -> Thread -> Bool
 eqThread t1 t2 = threadId t1 == threadId t2
@@ -163,8 +165,8 @@ step ((SReturn Hole, env, v:ctx, tid, ptid) : ts) _ | notValue v  = return ((v, 
 step ((val@(EVal _), env, SReturn Hole : ctx, tid, ptid) : ts) _ = -- must be value
   let (oenv, octx) = escapeHole env ctx firstCall in -- find nearest escape (other env (note: maybe only find next hole?))
   return ((val, oenv, octx, tid, ptid):ts)
-step ((SReturn val, env, ctx, tid, ptid) : ts) _ = -- initial evaluation, parse the maybe expr and put it on the stack/ctx
-  return ((val, env, SReturn Hole : ctx, tid, ptid):ts) --put what to return (val) on the stack
+step ((SReturn val, env, ctx, tid, ptid) : ts) _ =  -- initial evaluation, parse the maybe expr and put it on the stack/ctx
+    return ((val, env, SReturn Hole : ctx, tid, ptid):ts) --put what to return (val) on the stack
 step ((EVal VVoid, env, ctx, tid, ptid) : ts) _ = return ((SSkip, env, ctx, tid, ptid):ts) --toplevel return ((hopefully)
 
 --Throw
@@ -189,7 +191,7 @@ step ((SEof, env, ctx, tid, ptid) : ts) _ = return ((SSkip, env, [], tid, ptid):
 
 step threads@((ESpawn e, env, ctx, tid, ptid):ts) _  = do
   let ntid = getNextId threads
-  return ((EVal (VInt ntid), env, ctx, tid, ptid): (e, env, [], ntid, tid) : ts)
+  return ((EVal (VInt ntid), env, ctx, tid, ptid): (startupCode e, env, [], ntid, tid) : ts)
 
 step ((EDetach e, env, ctx, tid, ptid) : ts) _ | notValue e = return ((e, env, EDetach Hole : ctx, tid, ptid):ts) -- parse expr
 step threads@((EVal (VInt n), env, EDetach Hole : ctx, tid, ptid):ts) _ = do
@@ -208,7 +210,9 @@ step ((e, env, ctx, tid, ptid) : ts) _ = error $ "Stuck at expression: " ++ show
 escapeHole :: Env -> [Ctx] -> (Ctx -> Maybe a) -> (a, [Ctx])
 escapeHole env ctx f = do
                 let octx = dropWhile (isNothing . f) ctx
-                let ret = fromMaybe (error "Failed to escape hole") (f (head octx))
+                let ret = case octx of 
+                      [] -> error "No context left"
+                      (oc:_) -> fromMaybe (error "Failed to escape hole") (f oc)
                 (ret, if null octx then [] else tail octx)
 
 
