@@ -1,3 +1,4 @@
-for(var i = ref 0;; *i < 10; i = *i + 1;){
-
+for(var i = ref 0; *i < 10; i = *i + 1;){
+    println("Loop number ",*i);
 }
+// println("i is now",*i); //Main.exe: failed to find var 'i' in env []

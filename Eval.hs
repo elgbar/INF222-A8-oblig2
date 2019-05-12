@@ -105,12 +105,15 @@ step ((SSkip, _, SBlock (HoleWithEnv env) : ctx, tid, ptid) : ts) _ = return ((S
 step ((SSeq s1 s2, env, ctx, tid, ptid) : ts) _ = return ((s1, env, SSeq Hole s2 : ctx, tid, ptid):ts)
 step ((SSkip, env, SSeq Hole s2 : ctx, tid, ptid) : ts) _ = return ((s2, env, ctx, tid, ptid):ts)
 
--- If and while
+-- If and while and for
 step ((SIf cond s1 s2, env, ctx, tid, ptid) : ts) _ = return ((cond, env, SIf Hole s1 s2 : ctx, tid, ptid):ts)
 step ((EVal (VBool True), env, SIf Hole s1 _ : ctx, tid, ptid) : ts) _ = return ((SBlock s1, env, ctx, tid, ptid):ts)
 step ((EVal (VBool False), env, SIf Hole _ s2 : ctx, tid, ptid) : ts) _ = return ((SBlock s2, env, ctx, tid, ptid):ts)
 
 step ((w@(SWhile cond s), env, ctx, tid, ptid) : ts) _ = return ((SIf cond (SSeq s w) SSkip, env, ctx, tid, ptid):ts)
+
+-- declare the var, then create a while loop where the statement is the given statment plus the incrementor
+step ((SFor dec cond inc s, env,ctx,tid,ptid):ts) _ = return ((SBlock (SSeq dec (SWhile cond (SSeq s inc))),env,ctx,tid,ptid):ts) 
 
 -- Variable declaration
 step ((SVarDecl s e, env, ctx, tid, ptid) : ts) _ = return ((e, env, SVarDecl s Hole : ctx, tid, ptid):ts)
