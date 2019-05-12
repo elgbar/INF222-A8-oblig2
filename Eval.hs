@@ -46,153 +46,164 @@ parentId :: Thread -> Int
 parentId (_, _, _, _, ptid) = ptid
 
 getThread :: Int -> [Thread] -> Thread
-getThread tid [] = error $ "Failed to find a thread with the ID "++tid
-getThread tid threads = head $ filter (tid == threadId) threads
+getThread tid [] = error $ "Failed to find a thread with the id "++show tid
+getThread tid threads = head $ filter (\t -> tid == threadId t) threads
+
+eqThread :: Thread -> Thread -> Bool
+eqThread t1 t2 = threadId t1 == threadId t2
+notEqThread t1 t2 = not $ eqThread t1 t2
 
 exec :: Ast -> Bool -> IO Env
 exec e = steps [(e, primitives, [], 0, 0)]
-  -- do
-  -- (_, env, _, 0, 0) <- steps [(e, primitives, [], 0, 0)] dbg
-  -- return env
 
-concatMapM :: (a -> IO [a]) -> [a] -> IO [a]
-concatMapM f list = fmap concat (mapM f list)
+--step n times then but the first thread to the back
+stepN :: [Thread] -> Bool -> Int -> IO [Thread]
+stepN threads dbg n = do
+  trds@(t:ts) <- step threads dbg
+  case t of 
+    (SSkip, _, [], _, _) -> return [getThread 0 trds] --nothing more to evaluate, main thread is still needed
+    -- When a thread is waiting for another thread make sure it uses as little resources as possible
+    -- Note this is fair as it will step once when its their turn
+    (_, _, EJoin Hole : _, _, _) -> return $ ts ++ [t] 
+    _ ->  case n of -- | dbg, trace ("RR step nr "++show n) True 
+        0 -> return $ ts ++ [t]
+        n -> stepN trds dbg (n-1)
+      
 
       -- threads to run -> threads ran, _ _ -> new state
 steps :: [Thread] -> Bool -> IO Env
 --fmap concat (
-steps frs dbg  = do
-
-    threads <- concatMapM (\f -> step f frs dbg) frs -- step in each thread
-    () <- getThread 0 threads
-    nonDead <- filterM (\f -> case f of {(SSkip, _, [], n, _) -> return $ n == 0 ; otherwise -> return True}) threads -- filter out ended threads
+steps thrds dbg  = do
+    threads <- stepN thrds dbg 5 -- step in each thread
+    let (_, mainEnv, _, _, _) = getThread 0 threads
+    nonDead <- filterM (\f -> case f of {(SSkip, _, [], n, _) -> return False ; otherwise -> return True}) threads -- filter out ended threads
     alive <- filterM (\f -> return $ threadExists (parentId f) nonDead) nonDead -- filter out threads where the parent has stopped
     case alive of
-      [] -> error "No threads alive"
-      [(SSkip, _, [], _, _)] -> error "Main thread not last alive"
-      (SSkip, env, [], 0, 0):s -> return env
-      _ -> steps alive dbg 
+      (a,e,c,t,p):_ | dbg, trace ("\nThreads alive: "++show (length alive)) False -> undefined
+      [] -> return mainEnv
+      _ -> steps alive dbg
 
 
-step :: Thread -> [Thread] -> Bool -> IO [Thread]
-step (ast, e, c, tid, ptid) _ True | trace ("Evaluating (tid "++show tid++", pid "++show ptid++")\nast: "++ show ast ++ "\n\nctx: " ++ show c ++"\n\nenv: "++ showNoPrim e ++"\n\n\n") False = undefined
 
--- step fr@(SSkip, _, [], _, _) _ _ = return [fr]
+
+step :: [Thread] -> Bool -> IO [Thread]
+step ((ast, e, c, tid, ptid) : ts) True | trace ("Evaluating (tid "++show tid++", pid "++show ptid++")\nast: "++ show ast ++ "\n\nctx: " ++ show c ++"\n\nenv: "++ showNoPrim e ++"\n\n\n") False = undefined
+
+-- step fr@(SSkip, _, [], _, _) : ts) _ = return [fr]
 
 -- Statement expression: evaluate expression and turn into SSkip
-step (SExpr e, env, ctx, tid, ptid) _ _ = return [(e, env, SExpr Hole : ctx, tid, ptid)]
-step (v, env, SExpr Hole : ctx, tid, ptid) _ _ | isValue v = return [(SSkip, env, ctx, tid, ptid)]
+step ((SExpr e, env, ctx, tid, ptid) : ts) _ = return ((e, env, SExpr Hole : ctx, tid, ptid):ts)
+step ((v, env, SExpr Hole : ctx, tid, ptid) : ts) _ | isValue v = return ((SSkip, env, ctx, tid, ptid):ts)
 
 -- Blocks
-step (SBlock s, env, ctx, tid, ptid) _ _ = return [(s, env, SBlock (HoleWithEnv env) : ctx, tid, ptid)]
-step (SSkip, _, SBlock (HoleWithEnv env) : ctx, tid, ptid) _ _ = return [(SSkip, env, ctx, tid, ptid)] -- restore environment when block closes
+step ((SBlock s, env, ctx, tid, ptid) : ts) _ = return ((s, env, SBlock (HoleWithEnv env) : ctx, tid, ptid):ts)
+step ((SSkip, _, SBlock (HoleWithEnv env) : ctx, tid, ptid) : ts) _ = return ((SSkip, env, ctx, tid, ptid):ts) -- restore environment when block closes
 
 -- Sequences
-step (SSeq s1 s2, env, ctx, tid, ptid) _ _ = return [(s1, env, SSeq Hole s2 : ctx, tid, ptid)]
-step (SSkip, env, SSeq Hole s2 : ctx, tid, ptid) _ _ = return [(s2, env, ctx, tid, ptid)]
+step ((SSeq s1 s2, env, ctx, tid, ptid) : ts) _ = return ((s1, env, SSeq Hole s2 : ctx, tid, ptid):ts)
+step ((SSkip, env, SSeq Hole s2 : ctx, tid, ptid) : ts) _ = return ((s2, env, ctx, tid, ptid):ts)
 
 -- If and while
-step (SIf cond s1 s2, env, ctx, tid, ptid) _ _ = return [(cond, env, SIf Hole s1 s2 : ctx, tid, ptid)]
-step (EVal (VBool True), env, SIf Hole s1 _ : ctx, tid, ptid) _ _ = return [(SBlock s1, env, ctx, tid, ptid)]
-step (EVal (VBool False), env, SIf Hole _ s2 : ctx, tid, ptid) _ _ = return [(SBlock s2, env, ctx, tid, ptid)]
+step ((SIf cond s1 s2, env, ctx, tid, ptid) : ts) _ = return ((cond, env, SIf Hole s1 s2 : ctx, tid, ptid):ts)
+step ((EVal (VBool True), env, SIf Hole s1 _ : ctx, tid, ptid) : ts) _ = return ((SBlock s1, env, ctx, tid, ptid):ts)
+step ((EVal (VBool False), env, SIf Hole _ s2 : ctx, tid, ptid) : ts) _ = return ((SBlock s2, env, ctx, tid, ptid):ts)
 
-step (w@(SWhile cond s), env, ctx, tid, ptid) _ _ = return [(SIf cond (SSeq s w) SSkip, env, ctx, tid, ptid)]
+step ((w@(SWhile cond s), env, ctx, tid, ptid) : ts) _ = return ((SIf cond (SSeq s w) SSkip, env, ctx, tid, ptid):ts)
 
 -- Variable declaration
-step (SVarDecl s e, env, ctx, tid, ptid) _ _ = return [(e, env, SVarDecl s Hole : ctx, tid, ptid)]
-step (v, env, SVarDecl s Hole : ctx, tid, ptid) _ _ | isValue v
-  = return [(SSkip, addVar s (expr2val v) env, ctx, tid, ptid)]
+step ((SVarDecl s e, env, ctx, tid, ptid) : ts) _ = return ((e, env, SVarDecl s Hole : ctx, tid, ptid):ts)
+step ((v, env, SVarDecl s Hole : ctx, tid, ptid) : ts) _ | isValue v
+  = return ((SSkip, addVar s (expr2val v) env, ctx, tid, ptid):ts)
 
 -- Assignment
-step (SAssign s e, env, ctx, tid, ptid) _ _ = return [(e, env, SAssign s Hole : ctx, tid, ptid)]
-step (v, env, SAssign s Hole : ctx, tid, ptid) _ _ | isValue v =
+step ((SAssign s e, env, ctx, tid, ptid) : ts) _ = return ((e, env, SAssign s Hole : ctx, tid, ptid):ts)
+step ((v, env, SAssign s Hole : ctx, tid, ptid) : ts) _ | isValue v =
   case findVar s env of
-    (VRef nv) -> writeIORef nv (expr2val v) >> return [(SSkip, env, ctx, tid, ptid)]
+    (VRef nv) -> writeIORef nv (expr2val v) >> return ((SSkip, env, ctx, tid, ptid):ts)
     _ -> ioError $ userError $ "Trying to assign to a non-ref \"" ++ s ++ "\""
 
 
 -- Variable reference: get from environment
-step (EVar s, env, ctx, tid, ptid) _ _ = return [(EVal $ findVar s env, env, ctx, tid, ptid)]
+step ((EVar s, env, ctx, tid, ptid) : ts) _ = return ((EVal $ findVar s env, env, ctx, tid, ptid):ts)
 
 -- Box a value
-step (ERef e, env, ctx, tid, ptid) _ _ = return [(e, env, ERef Hole : ctx, tid, ptid)]
-step (v, env, ERef Hole : ctx, tid, ptid) _ _ | isValue v = do
+step ((ERef e, env, ctx, tid, ptid) : ts) _ = return ((e, env, ERef Hole : ctx, tid, ptid):ts)
+step ((v, env, ERef Hole : ctx, tid, ptid) : ts) _ | isValue v = do
   nv <- newIORef (expr2val v)
-  return [(EVal (VRef nv), env, ctx, tid, ptid)]
+  return ((EVal (VRef nv), env, ctx, tid, ptid):ts)
 
 -- Dereference a ref
-step (EDeref e, env, ctx, tid, ptid) _ _ = return [(e, env, EDeref Hole : ctx, tid, ptid)]
-step (v, env, EDeref Hole : ctx, tid, ptid) _ _ | isValue v = do
+step ((EDeref e, env, ctx, tid, ptid) : ts) _ = return ((e, env, EDeref Hole : ctx, tid, ptid):ts)
+step ((v, env, EDeref Hole : ctx, tid, ptid) : ts) _ | isValue v = do
   let (VRef nv) = expr2val v
   v' <- readIORef nv
-  return [(EVal v', env, ctx, tid, ptid)]
+  return ((EVal v', env, ctx, tid, ptid):ts)
 
 -- Function becomes a closure
-step (EFun pars body, env, ctx, tid, ptid) _ _ = return [(EVal $ VClosure pars body env, env, ctx, tid, ptid)]
+step ((EFun pars body, env, ctx, tid, ptid) : ts) _ = return ((EVal $ VClosure pars body env, env, ctx, tid, ptid):ts)
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
-step (ECall (EVal (VClosure pars s cloEnv)) [] vs, env, ctx, tid, ptid) _ _ = return [(s, addVars pars (reverse vs) cloEnv, ECall (HoleWithEnv env) [] vs: ctx, tid, ptid)]
-step (SSkip, _, ECall (HoleWithEnv env) _ _ : ctx, tid, ptid) _ _ = return [(EVal VVoid, env, ctx, tid, ptid)]
+step ((ECall (EVal (VClosure pars s cloEnv)) [] vs, env, ctx, tid, ptid) : ts) _ = return ((s, addVars pars (reverse vs) cloEnv, ECall (HoleWithEnv env) [] vs: ctx, tid, ptid):ts)
+step ((SSkip, _, ECall (HoleWithEnv env) _ _ : ctx, tid, ptid) : ts) _ = return ((EVal VVoid, env, ctx, tid, ptid):ts)
   -- function body fully evaluated, return VVoid
 
-step (ECall (EVal (VPrimFun f)) [] vs, env, ctx, tid, ptid) _ _ = return [(EVal $ f (reverse vs), env, ctx, tid, ptid)]
-step (ECall (EVal (VPrimFunIO f)) [] vs, env, ctx, tid, ptid) _ _ = do
+step ((ECall (EVal (VPrimFun f)) [] vs, env, ctx, tid, ptid) : ts) _ = return ((EVal $ f (reverse vs), env, ctx, tid, ptid):ts)
+step ((ECall (EVal (VPrimFunIO f)) [] vs, env, ctx, tid, ptid) : ts) _ = do
   res  <- f (reverse vs)
-  return [(EVal res, env, ctx, tid, ptid)]
-step (ECall f [] _, _, _, _, _) _ _ | isValue f = error $ "a call to non-function " ++ show f
+  return ((EVal res, env, ctx, tid, ptid):ts)
+step ((ECall f [] _, _, _, _, _) : ts) _ | isValue f = error $ "a call to non-function " ++ show f
 -- Reduce on function posi tion
-step (ECall f args [], env, ctx, tid, ptid) _ _ | notValue f = return [(f, env, ECall Hole args [] : ctx, tid, ptid)]
-step (f, env, ECall Hole args [] : ctx, tid, ptid) _ _ | isValue f = return [(ECall f args [], env, ctx, tid, ptid)]
-step (ECall f (a:args) vs, env, ctx, tid, ptid) _ _ | isValue f = return [(a, env, ECall f (Hole:args) vs : ctx, tid, ptid)]
-step (v, env, ECall f (Hole:args) vs : ctx, tid, ptid) _ _ | isValue v = return [(ECall f args (expr2val v : vs), env, ctx, tid, ptid)]
+step ((ECall f args [], env, ctx, tid, ptid) : ts) _ | notValue f = return ((f, env, ECall Hole args [] : ctx, tid, ptid):ts)
+step ((f, env, ECall Hole args [] : ctx, tid, ptid) : ts) _ | isValue f = return ((ECall f args [], env, ctx, tid, ptid):ts)
+step ((ECall f (a:args) vs, env, ctx, tid, ptid) : ts) _ | isValue f = return ((a, env, ECall f (Hole:args) vs : ctx, tid, ptid):ts)
+step ((v, env, ECall f (Hole:args) vs : ctx, tid, ptid) : ts) _ | isValue v = return ((ECall f args (expr2val v : vs), env, ctx, tid, ptid):ts)
 
 -- return
-step (SReturn Hole, env, v:ctx, tid, ptid) _ _ | notValue v  = return [(v, env, ctx, tid, ptid)] -- evaluate return expr to value (note/warn: what if never value?)
-step (val@(EVal _), env, SReturn Hole : ctx, tid, ptid) _ _ = -- must be value
+step ((SReturn Hole, env, v:ctx, tid, ptid) : ts) _ | notValue v  = return ((v, env, ctx, tid, ptid):ts) -- evaluate return expr to value (note/warn: what if never value?)
+step ((val@(EVal _), env, SReturn Hole : ctx, tid, ptid) : ts) _ = -- must be value
   let (oenv, octx) = escapeHole env ctx firstCall in -- find nearest escape (other env (note: maybe only find next hole?))
-  return [(val, oenv, octx, tid, ptid)]
-step (SReturn val, env, ctx, tid, ptid) _ _ = -- initial evaluation, parse the maybe expr and put it on the stack/ctx
-  return [(val, env, SReturn Hole : ctx, tid, ptid)] --put what to return (val) on the stack
-step (EVal VVoid, env, ctx, tid, ptid) _ _ = return [(SSkip, env, ctx, tid, ptid)] --toplevel return [(hopefully)
+  return ((val, oenv, octx, tid, ptid):ts)
+step ((SReturn val, env, ctx, tid, ptid) : ts) _ = -- initial evaluation, parse the maybe expr and put it on the stack/ctx
+  return ((val, env, SReturn Hole : ctx, tid, ptid):ts) --put what to return (val) on the stack
+step ((EVal VVoid, env, ctx, tid, ptid) : ts) _ = return ((SSkip, env, ctx, tid, ptid):ts) --toplevel return ((hopefully)
 
 --Throw
-step (SThrow Hole, env, v:ctx, tid, ptid) _ _ | notValue v  = return [(v, env, ctx, tid, ptid)] -- evaluate return expr to value (note/warn: what if never value?)
-step (SThrow val, env, ctx, tid, ptid) _ _ = return [(val, env, SThrow Hole : ctx, tid, ptid)] --eval expr to value before catching
+step ((SThrow Hole, env, v:ctx, tid, ptid) : ts) _ | notValue v  = return ((v, env, ctx, tid, ptid):ts) -- evaluate return expr to value (note/warn: what if never value?)
+step ((SThrow val, env, ctx, tid, ptid) : ts) _ = return ((val, env, SThrow Hole : ctx, tid, ptid):ts) --eval expr to value before catching
 
 --Try
-step (STry b v c, env, ctx, tid, ptid) _ _ = return [(b, env, STry (HoleWithEnv env) v c:ctx, tid, ptid)] -- entering a try block
+step ((STry b v c, env, ctx, tid, ptid) : ts) _ = return ((b, env, STry (HoleWithEnv env) v c:ctx, tid, ptid):ts) -- entering a try block
 --catch
 
-step (EVal v, env, SThrow Hole : ctx, tid, ptid) _ _ = -- must be value
+step ((EVal v, env, SThrow Hole : ctx, tid, ptid) : ts) _ = -- must be value
   let ((s, blk), octx) = escapeHole env ctx firstTry in -- find nearest escape (other env)
-  return [(blk, addVar s v env, octx, tid, ptid)]
-step (SSkip, env, STry (HoleWithEnv e) _ _:ctx, tid, ptid) _ dbg = return [(SSkip, e, ctx, tid, ptid)] -- nothing was thrown
+  return ((blk, addVar s v env, octx, tid, ptid):ts)
+step ((SSkip, env, STry (HoleWithEnv e) _ _:ctx, tid, ptid):ts) dbg = return ((SSkip, e, ctx, tid, ptid):ts) -- nothing was thrown
 
 -- import : replace import with this one
-step (SImport fn, oldEnv, ctx, tid, ptid) _ dbg = do
+step ((SImport fn, oldEnv, ctx, tid, ptid):ts) dbg = do
    s <- readFile fn
    let env = unsafePerformIO $ run s fn dbg dbg -- should verbosity be passed to step?
-   return [(SSkip, oldEnv ++ env, ctx, tid, ptid)] --it hurts me using the unsafeIO
-step (SEof, env, ctx, tid, ptid) _ _ = return [(SSkip, env, [], tid, ptid)] -- reached end of file, its here to pass env after an import
+   return ((SSkip, oldEnv ++ env, ctx, tid, ptid):ts) --it hurts me using the unsafeIO
+step ((SEof, env, ctx, tid, ptid) : ts) _ = return ((SSkip, env, [], tid, ptid):ts) -- reached end of file, its here to pass env after an import
 
-step (ESpawn e, env, ctx, tid, ptid) threads _  = do
+step threads@((ESpawn e, env, ctx, tid, ptid):ts) _  = do
   let nfid = getNextId threads
-  return [(EVal (VInt nfid), env, ctx, tid, ptid), (e, env, [], nfid, tid)]
+  return ((EVal (VInt nfid), env, ctx, tid, ptid): (e, env, [], nfid, tid):ts)
 
-step (EDetach e, env, ctx, tid, ptid) _ _ | notValue e = return [(e, env, EDetach Hole : ctx, tid, ptid)] -- parse expr
-step (EVal (VInt n), env, EDetach Hole : ctx, tid, ptid) threads _ = --do
-  
-  --  alive <- mapM (\frm@(a,e,c,f,p) -> if f == n then (a,e,c,n,p) else frm) threads -- filter out threads where the parent has stopped
-   return [(SSkip, env, ctx, tid, 0)]
-step (EVal v, env, EDetach Hole : ctx, tid, ptid) _ _ = error "Thread ids can only be integers"
+step ((EDetach e, env, ctx, tid, ptid) : ts) _ | notValue e = return ((e, env, EDetach Hole : ctx, tid, ptid):ts) -- parse expr
+step threads@((EVal (VInt n), env, EDetach Hole : ctx, tid, ptid):ts) _ = do
+      let th@(a,e,c,t,p) = getThread n threads
+      return ((EVal VVoid, env, ctx, tid, 0) : (a,e,c,t,0): filter (eqThread th) threads)
+step ((EVal v, env, EDetach Hole : ctx, tid, ptid) : ts) _ = error "Thread ids can only be integers"
 
-step (EJoin e, env, ctx, tid, ptid) _ _ | notValue e = return [(e,env,EJoin Hole : ctx,tid,ptid)] -- parse expr
-step f@(EVal (VInt n), env, EJoin Hole : ctx, tid, ptid) threads _ | threadExists n threads = return [f] -- given thread id still exists so we continue to wait
-step (EVal (VInt n), env, EJoin Hole : ctx, tid, ptid) threads _ | not $ threadExists n threads = return [(SSkip, env, ctx, tid, ptid)]
-step (EVal v, env, EJoin Hole : ctx, tid, ptid) _ _ = error "Thread ids can only be integers"
+step ((EJoin e, env, ctx, tid, ptid) : ts) _ | notValue e = return ((e, env, EJoin Hole : ctx, tid, ptid):ts) -- parse expr
+step threads@(f@(EVal (VInt n), env, EJoin Hole : ctx, tid, ptid):ts) _ | threadExists n threads = return (f:ts) -- given thread id still exists so we continue to wait
+step threads@((EVal (VInt n), env, EJoin Hole : ctx, tid, ptid):ts) _ | not $ threadExists n threads = return ((EVal VVoid, env, ctx, tid, ptid):ts) --return as a void as this it is wrapped in an SExpr
+step ((EVal v, env, EJoin Hole : ctx, tid, ptid) : ts) _ = error "Thread ids can only be integers"
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
-step (e, env, ctx, tid, ptid) _ _ = error $ "Stuck at expression: " ++ show e ++ printInfo env ctx
+step ((e, env, ctx, tid, ptid) : ts) _ = error $ "Stuck at expression: " ++ show e ++ printInfo env ctx
 
 escapeHole :: Env -> [Ctx] -> (Ctx -> Maybe a) -> (a, [Ctx])
 escapeHole env ctx f = do

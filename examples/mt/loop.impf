@@ -1,0 +1,4 @@
+var loop = fun (n) { 
+  var c = ref 0;
+  while (*c < n) c = *c + 1;
+};

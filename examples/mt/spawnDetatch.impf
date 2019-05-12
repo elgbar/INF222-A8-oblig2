@@ -1,0 +1,18 @@
+import "./examples/mt/loop"; // dependent on location you execute the program from
+
+println("main thread starting");
+
+var tid1 = spawn {
+    println("thread 1 starting");
+    var tid2 = spawn {
+        println("thread 2 starting");
+        loop(100);
+        println("thread 2 ending");
+    };
+    detach(tid2);
+    join(tid2);
+    println("thread 1 ending");
+};
+join(tid1);
+
+println("main thread ending");
