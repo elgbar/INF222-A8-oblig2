@@ -16,6 +16,7 @@ data Ast
   | SThrow Expr
   | SImport String
   | SEof -- Skip to the end of the file
+  | SFor Expr Expr Expr Stmt
 
   | EVal Value
   | EVar String

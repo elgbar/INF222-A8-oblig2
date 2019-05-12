@@ -32,6 +32,7 @@ semi       = Token.semi       lexer -- parses a semicolon
 symbol     = Token.symbol     lexer -- parses one of the ops
 whiteSpace = Token.whiteSpace lexer -- parses whitespace
 commaSep   = Token.commaSep   lexer -- parses a comma separated list
+semiSep1   = Token.semiSep1   lexer -- parses a semi separated list
 stringlit = Token.stringLiteral lexer
 top = parse program
 
@@ -45,6 +46,7 @@ statement =
   empty <|>
   ifStmt <|>
   whileStmt <|>
+  forStmt <|>
   block <|>
   returnStmt <|>
 
@@ -73,6 +75,20 @@ whileStmt = do
   reserved "while"
   e <- parens expr
   SWhile e <$> statement
+
+forStmt = do
+  reserved "for"
+  [dec, tst, inc] <- between (string "(") (string ")") ( do
+          dec <- statement
+          tst <- expr
+          semi
+          inc <- statement
+          return [dec,tst,inc]
+        )
+  stmt <- statement
+  return $ SFor dec tst inc stmt
+
+
 block = do
   ss <- braces (many statement)
   return $ SBlock $ foldr SSeq SSkip ss
