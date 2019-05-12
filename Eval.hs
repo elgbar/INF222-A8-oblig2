@@ -56,14 +56,14 @@ notEqThread t1 t2 = not $ eqThread t1 t2
 exec :: Ast -> Bool -> IO Env
 exec e = steps [(e, primitives, [], 0, 0)]
 
---step n times then but the first thread to the back
 stepN :: [Thread] -> Bool -> Int -> IO [Thread]
 stepN threads dbg n = do
   trds@(t:ts) <- step threads dbg
   case t of 
+    _ | dbg, trace ("\nStep: "++show n) False -> undefined
     (SSkip, _, [], _, _) -> return [getThread 0 trds] --nothing more to evaluate, main thread is still needed
     -- When a thread is waiting for another thread make sure it uses as little resources as possible
-    -- Note this is fair as it will step once when its their turn
+    -- Note this is fair as nothing will happen to the other threads while this (waiting) thread is running
     (_, _, EJoin Hole : _, _, _) -> return $ ts ++ [t] 
     _ ->  case n of -- | dbg, trace ("RR step nr "++show n) True 
         0 -> return $ ts ++ [t]
@@ -74,12 +74,12 @@ stepN threads dbg n = do
 steps :: [Thread] -> Bool -> IO Env
 --fmap concat (
 steps thrds dbg  = do
-    threads <- stepN thrds dbg 5 -- step in each thread
+    threads <- stepN thrds dbg 4 -- step in each thread
     let (_, mainEnv, _, _, _) = getThread 0 threads
-    nonDead <- filterM (\f -> case f of {(SSkip, _, [], n, _) -> return False ; otherwise -> return True}) threads -- filter out ended threads
-    alive <- filterM (\f -> return $ threadExists (parentId f) nonDead) nonDead -- filter out threads where the parent has stopped
+    running <- filterM (\f -> case f of {(SSkip, _, [], n, _) -> return False ; otherwise -> return True}) threads -- filter out ended threads
+    alive <- filterM (\f -> return $ threadExists (parentId f) running) running -- filter out threads where the parent has stopped
     case alive of
-      (a,e,c,t,p):_ | dbg, trace ("\nThreads alive: "++show (length alive)) False -> undefined
+      _ | dbg, trace ("\nThreads alive: "++show (length alive)) False -> undefined
       [] -> return mainEnv
       _ -> steps alive dbg
 
@@ -188,8 +188,8 @@ step ((SImport fn, oldEnv, ctx, tid, ptid):ts) dbg = do
 step ((SEof, env, ctx, tid, ptid) : ts) _ = return ((SSkip, env, [], tid, ptid):ts) -- reached end of file, its here to pass env after an import
 
 step threads@((ESpawn e, env, ctx, tid, ptid):ts) _  = do
-  let nfid = getNextId threads
-  return ((EVal (VInt nfid), env, ctx, tid, ptid): (e, env, [], nfid, tid):ts)
+  let ntid = getNextId threads
+  return ((EVal (VInt ntid), env, ctx, tid, ptid): (e, env, [], ntid, tid) : ts)
 
 step ((EDetach e, env, ctx, tid, ptid) : ts) _ | notValue e = return ((e, env, EDetach Hole : ctx, tid, ptid):ts) -- parse expr
 step threads@((EVal (VInt n), env, EDetach Hole : ctx, tid, ptid):ts) _ = do
