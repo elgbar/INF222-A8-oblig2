@@ -15,7 +15,7 @@ languageDef =
            , Token.commentLine     = "//"
            , Token.identStart      = letter
            , Token.identLetter     = alphaNum
-           , Token.reservedNames   = words "true false var if while fun ref return try catch reset shift spawn detach join import int boolean string"
+           , Token.reservedNames   = words "true false var if while fun ref return try catch reset shift spawn detach join import int bool string"
            , Token.reservedOpNames = words "+ - * / % == != < > <= >= && || ! ="
            }
 
@@ -79,7 +79,7 @@ whileStmt = do
 forStmt = do
   reserved "for"
   [dec, tst, inc] <- between (string "(") (string ")") ( do
-          dec <- statement
+          dec <- varDeclStmt
           tst <- expr
           semi
           inc <- statement
@@ -98,10 +98,17 @@ assignStmt = do
   semi
   return $ SAssign i e
 varDeclStmt = do
-  reserved "var"
+  let types = [("var", expr),("bool", boolLiterals), ("int", intLiteral), ("string",stringLiteral)]
+  foldl1 (<|>) $ map varDeclStmts types
+
+
+-- anyVarType vts = foldl1 (<|>) (map (\var -> reserved var >> return var) vts)
+varDeclStmts :: String -> a -> b
+varDeclStmts varType ex = do 
+  reserved varType
   i <- identifier
   reservedOp "="
-  e <- expr
+  e <- ex
   semi
   return $ SVarDecl i e
 
@@ -146,10 +153,13 @@ term = neg `chainl1` anyBinOp (words "* / %")
 neg = (anyUnaOp (words "! -") >>= \o -> factor >>= \r -> return $ o r) <|> factor
 
 factor = literal <|> fun <|> atomicOrCall <|> ref
-literal = intLiteral <|> boolLiteral "false" False <|> boolLiteral "true" True <|> stringLiteral
+literal = intLiteral <|> boolLiterals <|> stringLiteral
 
 intLiteral = natural >>= \i -> return $ EVal (VInt (fromInteger i))
+
+boolLiterals = boolLiteral "false" False <|> boolLiteral "true" True
 boolLiteral s v = reserved s >> return (EVal (VBool v))
+
 stringLiteral = stringlit >>= \s -> return $ EVal (VString s)
 
 ref = reserved "ref" >> factor >>= \e -> return $ ERef e
