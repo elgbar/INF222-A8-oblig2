@@ -16,7 +16,5 @@
   * Syntax differ from example given in assignment notes. You now do not need to declare a function after a spawn function.
   * Spawn support all expressions
   * All threads are covered by a try-catch block (like the main program)
-  
-## TODO
-
 * for-loops
+  * Essentially while loops with declaration, just sugar syntax 
