@@ -56,21 +56,7 @@ eqThread t1 t2 = threadId t1 == threadId t2
 notEqThread t1 t2 = not $ eqThread t1 t2
 
 exec :: Ast -> Bool -> IO Env
-exec e = steps [(e, primitives, [], 0, 0)]
-
-stepN :: [Thread] -> Bool -> Int -> IO [Thread]
-stepN threads dbg n = do
-  trds@(t:ts) <- step threads dbg
-  case t of 
-    _ | dbg, trace ("\nStep: "++show n) False -> undefined
-    (SSkip, _, [], _, _) -> return [getThread 0 trds] --nothing more to evaluate, main thread is still needed
-    -- When a thread is waiting for another thread make sure it uses as little resources as possible
-    -- Note this is fair as nothing will happen to the other threads while this (waiting) thread is running
-    (_, _, EJoin Hole : _, _, _) -> return $ ts ++ [t] 
-    _ ->  case n of -- | dbg, trace ("RR step nr "++show n) True 
-        0 -> return $ ts ++ [t]
-        n -> stepN trds dbg (n-1)
-      
+exec e = steps [(e, primitives, [], 0, 0)]    
 
       -- threads to run -> threads ran, _ _ -> new state
 steps :: [Thread] -> Bool -> IO Env
@@ -85,8 +71,21 @@ steps thrds dbg  = do
       [] -> return mainEnv
       _ -> steps alive dbg
 
-
-
+-- Step N times
+stepN :: [Thread] -> Bool -> Int -> IO [Thread]
+stepN threads dbg n = do
+  trds@(t:ts) <- step threads dbg
+  case t of
+    -- debug tracing
+    _ | dbg, trace ("\nStep: "++show n) False -> undefined
+     --nothing more to evaluate, main thread is still needed
+    (SSkip, _, [], _, _) -> return [getThread 0 trds]
+    -- When a thread is waiting for another thread make sure it uses as little resources as possible
+    -- Note this is fair as nothing will happen to the other threads while this (waiting) thread is running
+    (_, _, EJoin Hole : _, _, _) -> return $ ts ++ [t] 
+    _ ->  case n of
+        0 -> return $ ts ++ [t]
+        n -> stepN trds dbg (n-1)
 
 step :: [Thread] -> Bool -> IO [Thread]
 step ((ast, e, c, tid, ptid) : ts) True | trace ("Evaluating (tid "++show tid++", pid "++show ptid++")\nast: "++ show ast ++ "\n\nctx: " ++ show c ++"\n\nenv: "++ showNoPrim e ++"\n\n\n") False = undefined

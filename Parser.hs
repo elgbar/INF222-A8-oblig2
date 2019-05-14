@@ -39,7 +39,7 @@ top = parse program
 program = do
   whiteSpace
   ss <- many statement
-  eof 
+  eof
   return $ startupCode (foldr SSeq SEof ss)
 
 statement =
@@ -55,7 +55,7 @@ statement =
 
   importStmt <|>
 
-  varDeclStmt <|>
+  varDeclStmts <|>
   assignStmt <|>
   exprStmt
 
@@ -79,7 +79,7 @@ whileStmt = do
 forStmt = do
   reserved "for"
   [dec, tst, inc] <- between (string "(") (string ")") ( do
-          dec <- varDeclStmt
+          dec <- varDeclStmts
           tst <- expr
           semi
           inc <- statement
@@ -97,18 +97,26 @@ assignStmt = do
   e <- expr
   semi
   return $ SAssign i e
-varDeclStmt = do
-  let types = [("var", expr),("bool", boolLiterals), ("int", intLiteral), ("string",stringLiteral)]
-  foldl1 (<|>) $ map varDeclStmts types
 
 
--- anyVarType vts = foldl1 (<|>) (map (\var -> reserved var >> return var) vts)
-varDeclStmts :: String -> a -> b
-varDeclStmts varType ex = do 
-  reserved varType
+varDeclStmts =
+  -- let types = ["var"]--,("bool", boolLiterals), ("int", intLiteral), ("string",stringLiteral)]
+  -- foldl1 (<|>) $ map varDeclStmts types
+  varDeclStmt "var" <|> varDeclStmt "bool" <|> varDeclStmt "int" <|> varDeclStmt "string"
+  -- foldl1 (<|>) $ map varDeclStmts (words "var bool int string")
+
+varDeclStmt typ = do
+  reserved typ
   i <- identifier
   reservedOp "="
-  e <- ex
+
+  e <- case typ of
+    "var" -> expr
+    "int" -> intLiteral
+    "bool" -> boolLiterals
+    "string" -> stringLiteral
+    otherwise -> error $ "Unknown type "++typ
+  -- e <- expr
   semi
   return $ SVarDecl i e
 
@@ -180,7 +188,7 @@ fun = do
 variable = EVar <$> identifier
 -- FIXME resetExpr = do ...
 -- FIXME shiftExpr = do ...
-spawnExpr = do 
+spawnExpr = do
   reserved "spawn"
   body <- statement
   return $ ESpawn body
@@ -195,7 +203,7 @@ joinExpr = do
   tid <- parens factor
   return $ EJoin tid
 
-atomic = -- FIXME resetExpr <|> shiftExpr <|> 
+atomic = -- FIXME resetExpr <|> shiftExpr <|>
          spawnExpr <|> detachExpr <|> joinExpr <|>
          variable <|> parens expr <|> deref
 atomicOrCall = do

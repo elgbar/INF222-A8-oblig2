@@ -4,3 +4,5 @@
 Main*
 
 *.code-workspace
+
+\.stylish-haskell\.yaml

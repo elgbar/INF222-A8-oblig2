@@ -1,0 +1,16 @@
+var a = 1;
+var b = "he";
+var c = true;
+var d = fun(){};
+
+int e = 1;
+string f = "oof";
+bool g = false;
+
+println("a:", a);
+println("b:", b);
+println("c:", c);
+println("d:", d());
+println("e:", e);
+println("f:", f);
+println("g:", g);
