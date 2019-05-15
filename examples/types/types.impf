@@ -6,6 +6,9 @@ var d = fun(){};
 int e = 1;
 string f = "oof";
 bool g = false;
+fun d = fun(){
+    return "No semi fun!";
+}
 
 println("a:", a);
 println("b:", b);

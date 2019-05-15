@@ -2,9 +2,9 @@
 // passing a reference parameter
 var x = ref 1;
 
-var f = fun (a, res) {
+fun f = fun (a, res) {
   res = *res + a;  
-};
+}
 
 f(1, x);
 

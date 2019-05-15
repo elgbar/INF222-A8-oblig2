@@ -1,0 +1,6 @@
+var f = fun () {
+  return "Success";
+  return "Failed";
+  println("Returned only out of block");
+};
+println("Return ",f());
