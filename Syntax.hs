@@ -1,6 +1,6 @@
 module Syntax where
 
-import           Data.IORef
+import Data.IORef
 
 data Ast
   = SSkip

@@ -34,7 +34,7 @@ run input fname verbose dbg  =
 type Thread = (Ast, Env, [Ctx], Int, Int)
 
 getNextId :: [Thread] -> Int
-getNextId threads = foldl max 0 (map threadId threads) + 1 
+getNextId threads = foldl max 0 (map threadId threads) + 1
 
 threadExists :: Int -> [Thread] -> Bool
 threadExists tid threads = tid `elem` map threadId threads
@@ -46,8 +46,8 @@ parentId :: Thread -> Int
 parentId (_, _, _, _, ptid) = ptid
 
 getThread :: Int -> [Thread] -> Thread
-getThread tid threads = 
-  case filter (\t -> tid == threadId t) threads of 
+getThread tid threads =
+  case filter (\t -> tid == threadId t) threads of
     [t] -> t
     _ -> error $ "Failed to find a thread with the id " ++ show tid
 
@@ -56,7 +56,7 @@ eqThread t1 t2 = threadId t1 == threadId t2
 notEqThread t1 t2 = not $ eqThread t1 t2
 
 exec :: Ast -> Bool -> IO Env
-exec e = steps [(e, primitives, [], 0, 0)]    
+exec e = steps [(e, primitives, [], 0, 0)]
 
       -- threads to run -> threads ran, _ _ -> new state
 steps :: [Thread] -> Bool -> IO Env
@@ -82,7 +82,7 @@ stepN threads dbg n = do
     (SSkip, _, [], _, _) -> return [getThread 0 trds]
     -- When a thread is waiting for another thread make sure it uses as little resources as possible
     -- Note this is fair as nothing will happen to the other threads while this (waiting) thread is running
-    (_, _, EJoin Hole : _, _, _) -> return $ ts ++ [t] 
+    (_, _, EJoin Hole : _, _, _) -> return $ ts ++ [t]
     _ ->  case n of
         0 -> return $ ts ++ [t]
         n -> stepN trds dbg (n-1)
@@ -112,7 +112,7 @@ step ((EVal (VBool False), env, SIf Hole _ s2 : ctx, tid, ptid) : ts) _ = return
 step ((w@(SWhile cond s), env, ctx, tid, ptid) : ts) _ = return ((SIf cond (SSeq s w) SSkip, env, ctx, tid, ptid):ts)
 
 -- declare the var, then create a while loop where the statement is the given statment plus the incrementor
-step ((SFor dec cond inc s, env,ctx,tid,ptid):ts) _ = return ((SBlock (SSeq dec (SWhile cond (SSeq s inc))),env,ctx,tid,ptid):ts) 
+step ((SFor dec cond inc s, env,ctx,tid,ptid):ts) _ = return ((SBlock (SSeq dec (SWhile cond (SSeq s inc))),env,ctx,tid,ptid):ts)
 
 -- Variable declaration
 step ((SVarDecl s e, env, ctx, tid, ptid) : ts) _ = return ((e, env, SVarDecl s Hole : ctx, tid, ptid):ts)
@@ -215,7 +215,7 @@ step ((e, env, ctx, tid, ptid) : ts) _ = error $ "Stuck at expression: " ++ show
 escapeHole :: Env -> [Ctx] -> (Ctx -> Maybe a) -> (a, [Ctx])
 escapeHole env ctx f = do
                 let octx = dropWhile (isNothing . f) ctx
-                let ret = case octx of 
+                let ret = case octx of
                       [] -> error "No context left"
                       (oc:_) -> fromMaybe (error "Failed to escape hole") (f oc)
                 (ret, if null octx then [] else tail octx)
