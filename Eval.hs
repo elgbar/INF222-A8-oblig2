@@ -121,9 +121,12 @@ step ((v, env, SVarDecl s Hole : ctx, tid, ptid) : ts) _ | isValue v
 
 -- Assignment
 step ((SAssign s e, env, ctx, tid, ptid) : ts) _ = return ((e, env, SAssign s Hole : ctx, tid, ptid):ts)
-step ((v, env, SAssign s Hole : ctx, tid, ptid) : ts) _ | isValue v =
+step ((v, env, SAssign s Hole : ctx, tid, ptid) : ts) _ | isValue v = do
   case findVar s env of
-    (VRef nv) -> writeIORef nv (expr2val v) >> return ((SSkip, env, ctx, tid, ptid):ts)
+    (VRef nv t) -> do
+      var <- readIORef nv 
+      if sameType var t then writeIORef nv (expr2val v) >> return ((SSkip, env, ctx, tid, ptid):ts)
+      else error $ "Different types!"
     _ -> ioError $ userError $ "Trying to assign to a non-ref \"" ++ s ++ "\""
 
 
@@ -133,15 +136,17 @@ step ((EVar s, env, ctx, tid, ptid) : ts) _ = return ((EVal $ findVar s env, env
 -- Box a value
 step ((ERef e, env, ctx, tid, ptid) : ts) _ = return ((e, env, ERef Hole : ctx, tid, ptid):ts)
 step ((v, env, ERef Hole : ctx, tid, ptid) : ts) _ | isValue v = do
-  nv <- newIORef (expr2val v)
-  return ((EVal (VRef nv), env, ctx, tid, ptid):ts)
+  let val = expr2val v 
+  nv <- newIORef val
+  return ((EVal (VRef nv val), env, ctx, tid, ptid):ts)
 
 -- Dereference a ref
 step ((EDeref e, env, ctx, tid, ptid) : ts) _ = return ((e, env, EDeref Hole : ctx, tid, ptid):ts)
 step ((v, env, EDeref Hole : ctx, tid, ptid) : ts) _ | isValue v = do
-  let (VRef nv) = expr2val v
+  let (VRef nv ov) = expr2val v
   v' <- readIORef nv
-  return ((EVal v', env, ctx, tid, ptid):ts)
+  if sameType v' ov then return ((EVal v', env, ctx, tid, ptid):ts)
+  else error $ "Inconsistent type of derefered value. Curr val: "++show v'++" origial val: " ++ show ov
 
 -- Function becomes a closure
 step ((EFun pars body, env, ctx, tid, ptid) : ts) _ = return ((EVal $ VClosure pars body env, env, ctx, tid, ptid):ts)

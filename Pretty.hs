@@ -55,7 +55,7 @@ instance Pretty Value where
   pp (VBool True)     = text "true"
   pp (VBool False)    = text "false"
   pp (VString s)      = text $ show s
-  pp (VRef v)         = text "ref []" -- since not in IO, cannot show the content
+  pp (VRef _ _)       = text "ref []" -- since not in IO, cannot show the content
   pp VVoid            = text "void"
   pp (VClosure s b e) = text "closure"
   pp (VPrimFun _)     = text "primfun"

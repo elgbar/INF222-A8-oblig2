@@ -41,7 +41,7 @@ data Value
   = VInt Int
   | VBool Bool
   | VString String
-  | VRef (IORef Value)
+  | VRef (IORef Value) Value
   | VVoid
   | VClosure [String] Stmt Env
   | VPrimFun ([Value] -> Value)
@@ -92,7 +92,7 @@ instance Show Value where
   show (VInt i) = show i
   show (VBool b) = show b
   show (VString s) = s
-  show (VRef _) = "ref"
+  show (VRef _ _) = "ref"
   show VVoid = "void"
   show (VClosure ss s e) =
     "closure {strs=" ++
@@ -125,3 +125,15 @@ showNoPrim env = show $ filter (\(p,_) -> p `notElem` primitiveNames) env
 
 startupCode :: Expr -> Ast
 startupCode blk =  STry blk "__ex" (ECall (EVar "println") [EVal (VString "Uncaught exception: "), EVar "__ex"] [])
+
+
+sameType :: Value -> Value -> Bool
+sameType VVoid VVoid = True
+sameType (VInt _) (VInt _) = True
+sameType (VBool _) (VBool _) = True
+sameType (VString _) (VString _) = True
+sameType (VClosure _ _ _) (VClosure _ _ _) = True
+sameType (VPrimFunIO _) (VPrimFunIO _) = True
+sameType (VPrimFun _) (VPrimFun _) = True
+sameType (VRef _ v1) (VRef _ v2) = sameType v1 v2
+sameType _ _ = False

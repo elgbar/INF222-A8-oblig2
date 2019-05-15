@@ -100,23 +100,16 @@ assignStmt = do
 
 
 varDeclStmts =
-  -- let types = ["var"]--,("bool", boolLiterals), ("int", intLiteral), ("string",stringLiteral)]
-  -- foldl1 (<|>) $ map varDeclStmts types
-  varDeclStmt "var" <|> varDeclStmt "bool" <|> varDeclStmt "int" <|> varDeclStmt "string"
-  -- foldl1 (<|>) $ map varDeclStmts (words "var bool int string")
+  varDeclStmt "var" factor <|> 
+  varDeclStmt "bool" boolLiterals <|> 
+  varDeclStmt "int" intLiteral <|> 
+  varDeclStmt "string" stringLiteral
 
-varDeclStmt typ = do
+varDeclStmt typ par = do
   reserved typ
   i <- identifier
   reservedOp "="
-
-  e <- case typ of
-    "var" -> expr
-    "int" -> intLiteral
-    "bool" -> boolLiterals
-    "string" -> stringLiteral
-    otherwise -> error $ "Unknown type "++typ
-  -- e <- expr
+  e <- par
   semi
   return $ SVarDecl i e
 
