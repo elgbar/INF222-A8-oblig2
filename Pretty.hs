@@ -17,7 +17,7 @@ instance Pretty Ast where
   pp (HoleWithEnv _) = text "[env]"
   pp SSkip = text ";"
   pp (SIf e s1 s2) =
-    text "if (" <> pp e <> text ") {" $+$ nest 2 (pp s1) <+>
+    text "if (" <> pp e <> text ") {" $+$ nest 2 (pp s1) $+$
     text "} else {" $+$ nest 2 (pp s2) $+$ text "}"
   pp (SWhile e s) =
     text "while (" <> pp e <> text ") {" $+$ nest 2 (pp s) $+$ text "}"
