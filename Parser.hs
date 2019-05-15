@@ -104,14 +104,20 @@ varDeclStmts =
   varDeclStmt "var" factor <|> 
   varDeclStmt "bool" boolLiterals <|> 
   varDeclStmt "int" intLiteral <|> 
-  varDeclStmt "string" stringLiteral
+  varDeclStmt "string" stringLiteral <|>
+  varDeclStmt "fun" fun
+
 varDeclStmt typ par = do
   reserved typ
   i <- identifier
   reservedOp "="
   e <- par
-  semi
-  return $ SVarDecl i e
+  
+  case typ of 
+    "fun" -> return $ SVarDecl i e 
+    _ -> do 
+          semi
+          return $ SVarDecl i e
 
 returnStmt = do
   reserved "return"
