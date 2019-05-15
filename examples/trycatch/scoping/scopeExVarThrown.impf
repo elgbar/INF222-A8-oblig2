@@ -1,0 +1,7 @@
+try{
+    throw "ye";
+}catch(e){
+    println(e); // should work fine
+}
+println(e); // should get error here
+println("Should have gotten an error by now :(");

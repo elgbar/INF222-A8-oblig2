@@ -1,0 +1,5 @@
+try{
+    var a = 1;
+    throw "ye";
+}catch(e) println(e);
+println("flip ye", a);

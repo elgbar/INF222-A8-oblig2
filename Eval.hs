@@ -178,13 +178,12 @@ step ((SThrow val, env, ctx, tid, ptid) : ts) _ = return ((val, env, SThrow Hole
 --Try
 step ((STry b v c, env, ctx, tid, ptid) : ts) _ = return ((b, env, STry (HoleWithEnv env) v c:ctx, tid, ptid):ts) -- entering a try block
 --catch
-
 step ((EVal v, env, SThrow Hole : ctx, tid, ptid) : ts) _ = -- must be value
-  let ((s, blk), octx) = escapeHole env ctx firstTry in -- find nearest escape (other env)
-  return ((blk, addVar s v env, octx, tid, ptid):ts)
-step ((SSkip, env, STry (HoleWithEnv e) _ _:ctx, tid, ptid):ts) dbg = return ((SSkip, e, ctx, tid, ptid):ts) -- nothing was thrown
+  let ((e, s, blk), octx) = escapeHole env ctx firstTry in -- find nearest escape (other env)
+  return ((blk, addVar s v e, SBlock (HoleWithEnv e) : octx, tid, ptid):ts)
+step ((SSkip, env, STry (HoleWithEnv e) _ _ : ctx, tid, ptid):ts) _ = return ((SSkip, e, ctx, tid, ptid):ts) -- nothing was thrown
 
--- import : replace import with this one
+-- import
 step ((SImport fn, oldEnv, ctx, tid, ptid):ts) dbg = do
    s <- readFile fn
    let env = unsafePerformIO $ run s fn dbg dbg -- should verbosity be passed to step?
@@ -226,9 +225,9 @@ firstCall :: Ctx -> Maybe Env
 firstCall (ECall (HoleWithEnv e) _ _) = Just e
 firstCall _ = Nothing
 
-firstTry :: Ctx -> Maybe (String, Stmt)
-firstTry (STry _ s cb) = Just (s, cb)
+firstTry :: Ctx -> Maybe (Env, String, Stmt)
+firstTry (STry (HoleWithEnv e) s cb) = Just (e,s, cb)
 firstTry _ = Nothing
 
 printInfo :: Env -> [Ctx] -> String
-printInfo env ctx =  "\n\nContext: " ++ show ctx ++"\n\nEnvironment: "  ++ showNoPrim env 
+printInfo env ctx =  "\n\nContext: " ++ show ctx ++"\n\nEnvironment: "  ++ showNoPrim env
