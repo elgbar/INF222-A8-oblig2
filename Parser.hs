@@ -156,7 +156,7 @@ neg = (anyUnaOp (words "! -") >>= \o -> factor >>= \r -> return $ o r) <|> facto
 factor = literal <|> fun <|> atomicOrCall <|> ref
 literal = intLiteral <|> boolLiterals <|> stringLiteral
 
-intLiteral = natural >>= \i -> return $ EVal (VInt (fromInteger i))
+intLiteral = integer >>= \i -> return $ EVal (VInt (fromInteger i))
 
 boolLiterals = boolLiteral "false" False <|> boolLiteral "true" True
 boolLiteral s v = reserved s >> return (EVal (VBool v))
