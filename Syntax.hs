@@ -75,6 +75,7 @@ instance Show Ast where
   show (ESpawn e) = "ESpawn(" ++ show e ++ ")"
   show (EDetach e) = "EDetach(" ++ show e ++ ")"
   show (EJoin e) = "EJoin(" ++ show e ++ ")"
+  show (SFor d c i s) = "EFor "++ show d++"; "++show c ++"; "++show i++"{"++show s++"}"
 
 isValue, notValue :: Ast -> Bool
 isValue (EVal _) = True
