@@ -92,6 +92,7 @@ forStmt = do
 block = do
   ss <- braces (many statement)
   return $ SBlock $ foldr SSeq SSkip ss
+
 assignStmt = do
   i <- try (identifier >>= \j -> reservedOp "=" >> return j)
   e <- expr
@@ -104,7 +105,6 @@ varDeclStmts =
   varDeclStmt "bool" boolLiterals <|> 
   varDeclStmt "int" intLiteral <|> 
   varDeclStmt "string" stringLiteral
-
 varDeclStmt typ par = do
   reserved typ
   i <- identifier

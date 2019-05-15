@@ -137,3 +137,14 @@ sameType (VPrimFunIO _) (VPrimFunIO _) = True
 sameType (VPrimFun _) (VPrimFun _) = True
 sameType (VRef _ v1) (VRef _ v2) = sameType v1 v2
 sameType _ _ = False
+
+
+val2type :: Value -> String
+val2type (VInt _)         = "integer"
+val2type (VBool _)        = "boolean"
+val2type (VString _)      = "string"
+val2type (VRef _ v)       = "ref " ++ val2type v
+val2type VVoid            = "void"
+val2type (VClosure _ _ _) = "closure"
+val2type (VPrimFun _)     = "primfun"
+val2type (VPrimFunIO _)   = "primfun io"
