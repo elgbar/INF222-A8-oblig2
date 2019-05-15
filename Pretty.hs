@@ -30,7 +30,7 @@ instance Pretty Ast where
   pp (SVarDecl s e) = text "var" <+> text s <+> text "=" <+> pp e <> text ";"
   pp (SAssign s e) = text s <+> text "=" <+> pp e <> text ";"
   pp (SReturn (EVal VVoid)) = text "return"
-  pp (SReturn v) = text "return " <+> pp v
+  pp (SReturn v) = text "return" <+> pp v
   pp (EVal v) = pp v
   pp (EVar s) = text s
   pp (EFun ss s) =
@@ -39,15 +39,15 @@ instance Pretty Ast where
     pp e <> text "(" <> hcat (punctuate comma (map pp es ++ map pp vs)) <> text ")"
   pp (EDeref e) = text "*" <> pp e
   pp (ERef e) = text "ref" <+> pp e
-  pp (SThrow msg) = text "throw " <+> pp msg
+  pp (SThrow msg) = text "throw" <+> pp msg
   pp (STry blk var cblk) =
     text "try {" $+$ nest 2 (pp blk) $+$ text "} catch(" <+> text var <+> text ") {" $+$ nest 2 (pp cblk) $+$ text "}"
-  pp (SImport fn) = text "import " <+> text fn
+  pp (SImport fn) = text "import" <+> text fn
   pp SEof = text "eof"
 
   pp (ESpawn s) = text "spawn (" $+$ nest 2 (pp s) $$ text ")"
-  pp (EDetach e) = text "detach " <+> pp e
-  pp (EJoin e) = text "join " <+> pp e
+  pp (EDetach e) = text "detach" <+> pp e
+  pp (EJoin e) = text "join" <+> pp e
   pp (SFor d c i s) = text "for (" <+> pp d <+> text "; " <+> pp c <+> text "; " <+> pp i <+> text ") {" $+$ nest 2 (pp s) $+$ text "}"
 
 instance Pretty Value where
