@@ -169,14 +169,13 @@ step ((v, env, ECall f (Hole:args) vs : ctx, tid, ptid) : ts) _ | isValue v = re
 
 -- return
 step ((SReturn Hole, env, v:ctx, tid, ptid) : ts) _ | notValue v  = return ((v, env, ctx, tid, ptid):ts) -- evaluate return expr to value (note/warn: what if never value?)
-step ((val@(EVal _), env, SReturn Hole : ctx, tid, ptid) : ts) _ = -- must be value
+step ((val, env, SReturn Hole : ctx, tid, ptid) : ts) _ | isValue val=
   let (oenv, octx) = escapeHole env ctx firstCall in -- find nearest escape (other env (note: maybe only find next hole?))
   return ((val, oenv, octx, tid, ptid):ts)
-step ((SReturn val, env, ctx, tid, ptid) : ts) _ =  -- initial evaluation, parse the maybe expr and put it on the stack/ctx
-    return ((val, env, SReturn Hole : ctx, tid, ptid):ts) --put what to return (val) on the stack
-step ((EVal VVoid, env, ctx, tid, ptid) : ts) _ = return ((SSkip, env, ctx, tid, ptid):ts) --toplevel return ((hopefully)
+step ((SReturn val, env, ctx, tid, ptid) : ts) _ = return ((val, env, SReturn Hole : ctx, tid, ptid):ts)
+step ((EVal VVoid, env, ctx, tid, ptid) : ts) _ = return ((SSkip, env, ctx, tid, ptid):ts) --toplevel return
 
-  -- Throw
+-- Throw
 step ((SThrow Hole, env, v:ctx, tid, ptid) : ts) _ | notValue v  = return ((v, env, ctx, tid, ptid):ts) -- evaluate return expr to value (note/warn: what if never value?)
 step ((SThrow val, env, ctx, tid, ptid) : ts) _ = return ((val, env, SThrow Hole : ctx, tid, ptid):ts) --eval expr to value before catching
 
@@ -197,7 +196,7 @@ step ((SEof, env, ctx, tid, ptid) : ts) _ = return ((SSkip, env, [], tid, ptid):
 
 step threads@((ESpawn e, env, ctx, tid, ptid):ts) _  = do
   let ntid = getNextId threads
-  return ((EVal (VInt ntid), env, ctx, tid, ptid): (startupCode e, env, [], ntid, tid) : ts)
+  return ((EVal (VInt ntid), env, ctx, tid, ptid) : (startupCode e, env, [], ntid, tid) : ts)
 
 step ((EDetach e, env, ctx, tid, ptid) : ts) _ | notValue e = return ((e, env, EDetach Hole : ctx, tid, ptid):ts) -- parse expr
 step threads@((EVal (VInt n), env, EDetach Hole : ctx, tid, ptid):ts) _ = do
@@ -211,8 +210,8 @@ step threads@((EVal (VInt n), env, EJoin Hole : ctx, tid, ptid):ts) _ | not $ th
 step ((EVal v, env, EJoin Hole : ctx, tid, ptid) : ts) _ = error "Thread ids can only be integers"
 
 
- --if there are nothing more to parse ignore the return value as it cannot be used anyway
-step ((val, env, [], tid, ptid):ts) _| isValue val = return ((SSkip,env, [], tid, ptid):ts)
+-- If there are nothing more to parse ignore the return value as it cannot be used anyway
+step ((val, env, [], tid, ptid):ts) _| isValue val = return ((SSkip, env, [], tid, ptid):ts)
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
 step ((e, env, ctx, tid, ptid) : ts) _ = error $ "Stuck at expression: " ++ show e ++ printInfo env ctx
@@ -223,7 +222,7 @@ escapeHole env ctx f = do
                 let ret = case octx of
                       [] -> error "No context left"
                       (oc:_) -> fromMaybe (error "Failed to escape hole") (f oc)
-                (ret, if null octx then [] else tail octx)
+                (ret, tail octx)
 
 
 firstCall :: Ctx -> Maybe Env
