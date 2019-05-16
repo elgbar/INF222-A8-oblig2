@@ -22,7 +22,7 @@ addVars ss vs env = zip ss vs ++ env
 findVar :: String -> Env -> Value
 findVar s env = fromMaybe (error $ "failed to find var '" ++ s ++ "' in env " ++ showNoPrim env) (lookup s env)
 
-    -- content -> file -> verbose -> debug -> IO Env ->
+    -- content -> file -> verbose -> debug -> IO Env
 run :: String -> String -> Bool -> Bool -> IO Env
 run input fname verbose dbg  =
   case parse program fname input of
@@ -54,9 +54,7 @@ getThread tid threads =
 exec :: Ast -> Bool -> IO Env
 exec e = steps [(e, primitives, [], 0, 0)]
 
-      -- threads to run -> threads ran, _ _ -> new state
 steps :: [Thread] -> Bool -> IO Env
---fmap concat (
 steps thrds dbg  = do
     threads <- stepN thrds dbg 4 -- step in each thread
     -- mapM_ putStrLn ["tid: "++show tid++" ptid: "++ show ptid | (_,_,_,tid, ptid) <- threads]
@@ -75,7 +73,6 @@ stepN :: [Thread] -> Bool -> Int -> IO [Thread]
 stepN threads dbg n = do
   trds@(t:ts) <- step threads dbg
   case t of
-    -- debug tracing
     _ | dbg, trace ("\nStep: "++show n) False -> undefined
     -- Nothing more to evaluate, main thread is still needed
     (SSkip, _, [], _, _) -> if (threadId t == 0) then return [t] else return ts
