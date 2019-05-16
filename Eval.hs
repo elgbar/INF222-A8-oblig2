@@ -223,6 +223,7 @@ escapeHole env ctx f = do
 
 firstCall :: Ctx -> Maybe Env
 firstCall (ECall (HoleWithEnv e) _ _) = Just e
+firstCall (STry (HoleWithEnv e) s cb) = Just e
 firstCall _ = Nothing
 
 firstTry :: Ctx -> Maybe (Env, String, Stmt)
