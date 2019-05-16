@@ -6,7 +6,7 @@ var tid1 = spawn {
     println("thread 1 starting");
     var tid2 = spawn {
         println("thread 2 starting");
-        for(var i = ref 0; *i < 100;     i = *i +1; ){
+        for(int i = ref 0; *i < 100;     i = *i +1; ){
             println("thread 2 running");
         }
         println("thread 2 ending");

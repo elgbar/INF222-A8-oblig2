@@ -101,20 +101,21 @@ assignStmt = do
 
 
 varDeclStmts =
-  varDeclStmt "var" factor <|> 
-  varDeclStmt "bool" boolLiterals <|> 
-  varDeclStmt "int" intLiteral <|> 
-  varDeclStmt "string" stringLiteral <|>
-  varDeclStmt "fun" fun
+  varDeclStmt "var" factor False <|> --factor already have reference with a factor
+  varDeclStmt "bool" boolLiterals True <|> 
+  varDeclStmt "int" intLiteral True <|> 
+  varDeclStmt "string" stringLiteral True <|>
+  varDeclStmt "fun" fun False
 
-varDeclStmt typ par = do
+-- varDeclStmt :: type of statement -> the parser for statement -> if references are allowed -> IO (parsec things)
+varDeclStmt typ par ref = do
   reserved typ
   i <- identifier
   reservedOp "="
-  e <- par
+  e <- if ref then (par <|> refType par) else par
   
   case typ of 
-    "fun" -> return $ SVarDecl i e 
+    "fun" -> return $ SVarDecl i e --do not require a semi at end of functions  
     _ -> do 
           semi
           return $ SVarDecl i e
@@ -169,7 +170,9 @@ boolLiteral s v = reserved s >> return (EVal (VBool v))
 
 stringLiteral = stringlit >>= \s -> return $ EVal (VString s)
 
-ref = reserved "ref" >> factor >>= \e -> return $ ERef e
+refType typ = reserved "ref" >> typ >>= \e -> return $ ERef e
+
+ref = refType factor
 deref = reservedOp "*" >> atomic >>= \e -> return $ EDeref e
 
 binOp s = reservedOp s >> return (\ a b -> ECall (EVar ("__b" ++ s)) [a, b] [])
