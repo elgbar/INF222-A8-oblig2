@@ -100,25 +100,7 @@ instance Show Value where
   show (VPrimFun _) = "prim-fun"
   show (VPrimFunIO _) = "prim-fun io"
 
-primitiveNames =
-  [ "__u-"
-  , "__u!"
-  , "__b+"
-  , "__b-"
-  , "__b*"
-  , "__b/"
-  , "__b%"
-  , "__b=="
-  , "__b!="
-  , "__b<"
-  , "__b<="
-  , "__b>"
-  , "__b>="
-  , "__b&&"
-  , "__b||"
-  , "print"
-  , "println"
-  ]
+primitiveNames = [ "__u-", "__u!", "__b+", "__b-", "__b*", "__b/", "__b%", "__b==", "__b!=", "__b<", "__b<=", "__b>", "__b>=", "__b&&", "__b||","print", "println" ]
 
 showNoPrim :: Env -> String
 showNoPrim env = show $ filter (\(p,_) -> p `notElem` primitiveNames) env
