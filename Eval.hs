@@ -58,7 +58,7 @@ exec e = steps [(e, primitives, [], 0, 0)]
 steps :: [Thread] -> Bool -> IO Env
 --fmap concat (
 steps thrds dbg  = do
-    threads <- stepN thrds dbg 0 -- step in each thread
+    threads <- stepN thrds dbg 4 -- step in each thread
     -- mapM_ putStrLn ["tid: "++show tid++" ptid: "++ show ptid | (_,_,_,tid, ptid) <- threads]
     -- putStrLn("")
     let (_, mainEnv, _, _, _) = getThread 0 threads
@@ -78,7 +78,7 @@ stepN threads dbg n = do
     -- debug tracing
     _ | dbg, trace ("\nStep: "++show n) False -> undefined
     -- Nothing more to evaluate, main thread is still needed
-    (SSkip, _, [], 0, _) -> return [getThread 0 trds]
+    (SSkip, _, [], _, _) -> if (threadId t == 0) then return [t] else return ts
     -- When a thread is waiting for another thread make sure it uses as little resources as possible
     -- Note this is fair as nothing will happen to the other threads while this (waiting) thread is running
     (_, _, EJoin Hole : _, _, _) -> return $ ts ++ [t]
