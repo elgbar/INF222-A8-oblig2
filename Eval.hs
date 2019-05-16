@@ -51,10 +51,6 @@ getThread tid threads =
     [t] -> t
     _ -> error $ "Failed to find a thread with the id " ++ show tid
 
-eqThread :: Thread -> Thread -> Bool
-eqThread t1 t2 = threadId t1 == threadId t2
-notEqThread t1 t2 = not $ eqThread t1 t2
-
 exec :: Ast -> Bool -> IO Env
 exec e = steps [(e, primitives, [], 0, 0)]
 
@@ -62,9 +58,12 @@ exec e = steps [(e, primitives, [], 0, 0)]
 steps :: [Thread] -> Bool -> IO Env
 --fmap concat (
 steps thrds dbg  = do
-    threads <- stepN thrds dbg 4 -- step in each thread
+    threads <- stepN thrds dbg 0 -- step in each thread
+    -- mapM_ putStrLn ["tid: "++show tid++" ptid: "++ show ptid | (_,_,_,tid, ptid) <- threads]
+    -- putStrLn("")
     let (_, mainEnv, _, _, _) = getThread 0 threads
     running <- filterM (\f -> case f of {(SSkip, _, [], n, _) -> return False ; otherwise -> return True}) threads -- filter out ended threads
+    -- let _ = trace "" False
     alive <- filterM (\f -> return $ threadExists (parentId f) running) running -- filter out threads where the parent has stopped
     case alive of
       _ | dbg, trace ("\nThreads alive: "++show (length alive)) False -> undefined
@@ -78,13 +77,13 @@ stepN threads dbg n = do
   case t of
     -- debug tracing
     _ | dbg, trace ("\nStep: "++show n) False -> undefined
-     --nothing more to evaluate, main thread is still needed
-    (SSkip, _, [], _, _) -> return [getThread 0 trds]
+    -- Nothing more to evaluate, main thread is still needed
+    (SSkip, _, [], 0, _) -> return [getThread 0 trds]
     -- When a thread is waiting for another thread make sure it uses as little resources as possible
     -- Note this is fair as nothing will happen to the other threads while this (waiting) thread is running
     (_, _, EJoin Hole : _, _, _) -> return $ ts ++ [t]
     _ ->  case n of
-        0 -> return $ ts ++ [t]
+        0 -> return $ ts ++ [t] -- Move the running thread to the back of the queue
         n -> stepN trds dbg (n-1)
 
 step :: [Thread] -> Bool -> IO [Thread]
@@ -200,8 +199,8 @@ step threads@((ESpawn e, env, ctx, tid, ptid):ts) _  = do
 
 step ((EDetach e, env, ctx, tid, ptid) : ts) _ | notValue e = return ((e, env, EDetach Hole : ctx, tid, ptid):ts) -- parse expr
 step threads@((EVal (VInt n), env, EDetach Hole : ctx, tid, ptid):ts) _ = do
-      let th@(a,e,c,t,p) = getThread n threads
-      return ((EVal VVoid, env, ctx, tid, 0) : (a,e,c,t,0): filter (eqThread th) threads)
+      let (a,e,c,t,p) = getThread n threads
+      return ((EVal VVoid, env, ctx, tid, ptid) : (a,e,c,t,0) : filter (\tr -> (threadId tr /= t)) ts)
 step ((EVal v, env, EDetach Hole : ctx, tid, ptid) : ts) _ = error "Thread ids can only be integers"
 
 step ((EJoin e, env, ctx, tid, ptid) : ts) _ | notValue e = return ((e, env, EJoin Hole : ctx, tid, ptid):ts) -- parse expr
