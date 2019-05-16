@@ -1,4 +1,5 @@
 var x = ref 0;
 println("x: ", *x);
+println("Should fail with msg: Main: user error (Cannot assign boolean to integer)");
 x = true; //should fail here
 println("x: ", *x);

@@ -1,0 +1,5 @@
+for(var i = ref 0; *i < 10; i = *i + 1;){
+    println("Loop number ",*i);
+}
+println("Should fail to get i after this line");
+println(*i); //Main.exe: failed to find var 'i' in env []
