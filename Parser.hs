@@ -101,11 +101,11 @@ assignStmt = do
 
 
 varDeclStmts =
-  varDeclStmt "var" factor False <|> --factor already have reference with a factor
+  varDeclStmt "var" expr False <|> --factor already have reference with a factor
   varDeclStmt "bool" boolLiterals True <|> 
   varDeclStmt "int" intLiteral True <|> 
   varDeclStmt "string" stringLiteral True <|>
-  varDeclStmt "fun" fun False
+  varDeclStmt "fun" fun True
 
 -- varDeclStmt :: type of statement -> the parser for statement -> if references are allowed -> IO (parsec things)
 varDeclStmt typ par ref = do

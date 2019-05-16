@@ -1,5 +1,5 @@
-var x = 1;
-var y = x + 2;
+int x = 1;
+var y = x + 2; //note: int canot be used here
 var z = x * y;
 
 print(x, y, z); println("");
