@@ -1,2 +1,2 @@
-// println("Should fail with msg: unexpected \"1\" expecting \"false\", \"true\" or \"ref\"");
+println("Should fail with msg: unexpected \"1\" expecting \"false\", \"true\" or \"ref\"");
 bool a = 1;

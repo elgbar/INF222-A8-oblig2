@@ -196,7 +196,7 @@ step threads@((ESpawn e, env, ctx, tid, ptid):ts) _  = do
 step ((EDetach e, env, ctx, tid, ptid) : ts) _ | notValue e = return ((e, env, EDetach Hole : ctx, tid, ptid):ts) -- parse expr
 step threads@((EVal (VInt n), env, EDetach Hole : ctx, tid, ptid):ts) _ = do
       let (a,e,c,t,p) = getThread n threads
-      return ((EVal VVoid, env, ctx, tid, ptid) : (a,e,c,t,0) : filter (\tr -> (threadId tr /= t)) ts)
+      return ((EVal VVoid, env, ctx, tid, ptid) : (a,e,c,t,0) : filter (\tr -> threadId tr /= t) ts)
 step ((EVal v, env, EDetach Hole : ctx, tid, ptid) : ts) _ = error "Thread ids can only be integers"
 
 step ((EJoin e, env, ctx, tid, ptid) : ts) _ | notValue e = return ((e, env, EJoin Hole : ctx, tid, ptid):ts) -- parse expr
@@ -218,8 +218,7 @@ step ((v@(EVal (VClosure _ _ _)), env, EVal (VCont nenv nctx) : ctx, tid, ptid) 
 
 -- If there are nothing more to parse ignore the return value as it cannot be used anyway
 step ((val, env, [], tid, ptid):ts) _ | isValue val = return ((SSkip, env, [], tid, ptid):ts)
- 
--- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
+
 step ((e, env, ctx, tid, ptid) : ts) _ = error $ "Stuck at expression: " ++ show e ++ printInfo env ctx
 
 
