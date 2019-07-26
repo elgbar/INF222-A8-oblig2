@@ -5,7 +5,6 @@ import Debug.Trace (trace)
 
 import Data.IORef
 import Data.Maybe
-import System.IO.Unsafe
 import Control.Monad
 import Data.Either
 import Parser
@@ -186,8 +185,8 @@ step ((SSkip, env, STry (HoleWithEnv e) _ _ : ctx, tid, ptid):ts) _ = return ((S
 -- import
 step ((SImport fn, oldEnv, ctx, tid, ptid):ts) dbg = do
    s <- readFile fn
-   let env = unsafePerformIO $ run s fn dbg dbg -- should verbosity be passed to step?
-   return ((SSkip, oldEnv ++ env, ctx, tid, ptid):ts) --it hurts me using the unsafeIO
+   env <- run s fn dbg dbg -- should verbosity be passed to step?
+   return ((SSkip, oldEnv ++ env, ctx, tid, ptid):ts)
 step ((SEof, env, ctx, tid, ptid) : ts) _ = return ((SSkip, env, [], tid, ptid):ts) -- reached end of file, its here to pass env after an import
 
 step threads@((ESpawn e, env, ctx, tid, ptid):ts) _  = do
