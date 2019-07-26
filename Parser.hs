@@ -100,12 +100,19 @@ assignStmt = do
   return $ SAssign i e
 
 
+namedFun = do
+  reserved "fun"
+  i <- identifier
+  pars <- parens (commaSep identifier)
+  body <- block
+  return $ SVarDecl i (EFun pars body)
+
 varDeclStmts =
   varDeclStmt "var" expr False <|> --factor already have reference with a factor
   varDeclStmt "bool" boolLiterals True <|> 
   varDeclStmt "int" intLiteral True <|> 
   varDeclStmt "string" stringLiteral True <|>
-  varDeclStmt "fun" fun True
+  namedFun
 
 -- varDeclStmt :: type of statement -> the parser for statement -> if references are allowed -> IO (parsec things)
 varDeclStmt typ par ref = do

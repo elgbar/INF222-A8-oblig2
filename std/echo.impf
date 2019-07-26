@@ -1,10 +1,5 @@
-var test = fun(){
-
-};
-
-var echo = fun(){
-    var in = readln();
-    println("in: ",in);
-};
+fun echo(){
+    println(readln());
+}
 
 echo();

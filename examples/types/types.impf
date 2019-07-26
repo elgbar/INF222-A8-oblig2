@@ -6,7 +6,7 @@ var d = fun(){};
 int e = 1;
 string f = "oof";
 bool g = false;
-fun d = fun(){
+fun h(){
     return "No semi fun!";
 }
 
@@ -17,3 +17,4 @@ println("d:", d());
 println("e:", e);
 println("f:", f);
 println("g:", g);
+println("h:", h());
