@@ -6,6 +6,7 @@ import           Syntax
 primitives =
   [ ("__u-", VPrimFun $ \[VInt x] -> VInt $ -x)
   , ("__u!", VPrimFun $ \[VBool x] -> VBool $ not x)
+  , ("__u||", VPrimFun $ \[VBool x, VBool y] -> VBool $ x || y)
   , ("__b+", VPrimFun $ \[VInt x, VInt y] -> VInt $ x + y)
   , ("__b-", VPrimFun $ \[VInt x, VInt y] -> VInt $ x - y)
   , ("__b*", VPrimFun $ \[VInt x, VInt y] -> VInt $ x * y)
