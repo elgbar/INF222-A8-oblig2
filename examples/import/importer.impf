@@ -1,4 +1,4 @@
-import "./examples/import/math"; // dependent on location you execute the program from
+import "./std/math"; // dependent on location you execute the program from
 import "./examples/import/error";
 
 println("abs of -5 is ", abs(-5));
