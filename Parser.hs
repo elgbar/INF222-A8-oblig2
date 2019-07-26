@@ -112,7 +112,7 @@ varDeclStmt typ par ref = do
   reserved typ
   i <- identifier
   reservedOp "="
-  e <- if ref then (par <|> refType par) else par
+  e <- if ref then par <|> refType par else par
   
   case typ of 
     "fun" -> return $ SVarDecl i e --do not require a semi at end of functions  
@@ -188,8 +188,23 @@ fun = do
   return $ EFun pars body
 
 variable = EVar <$> identifier
--- FIXME resetExpr = do ...
--- FIXME shiftExpr = do ...
+resetExpr = do 
+  reserved "reset"
+  f <- parens (do
+    reserved "fun"
+    symbol "("
+    symbol ")"
+    body <- block
+    return $ EFun [] body)
+  return $ EReset f
+shiftExpr = do 
+  reserved "shift"
+  f <- parens (do 
+    reserved "fun"
+    par <- parens identifier
+    body <- block
+    return $ EFun [par] body)
+  return $ EReset f
 spawnExpr = do
   reserved "spawn"
   body <- statement
@@ -205,7 +220,7 @@ joinExpr = do
   tid <- parens factor
   return $ EJoin tid
 
-atomic = -- FIXME resetExpr <|> shiftExpr <|>
+atomic = resetExpr <|> shiftExpr <|>
          spawnExpr <|> detachExpr <|> joinExpr <|>
          variable <|> parens expr <|> deref
 atomicOrCall = do

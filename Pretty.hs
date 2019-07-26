@@ -44,6 +44,8 @@ instance Pretty Ast where
     text "try {" $+$ nest 2 (pp blk) $+$ text "} catch(" <+> text var <+> text ") {" $+$ nest 2 (pp cblk) $+$ text "}"
   pp (SImport fn) = text "import" <+> text fn
   pp SEof = text "eof"
+  pp (EReset f) = text "reset ("$+$ nest 2 (pp f) $+$ text ")"
+  pp (EShift f) = text "shift ("$+$ nest 2 (pp f) $+$ text ")"
 
   pp (ESpawn s) = text "spawn (" $+$ nest 2 (pp s) $$ text ")"
   pp (EDetach e) = text "detach" <+> pp e

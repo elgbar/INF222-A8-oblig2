@@ -1,0 +1,44 @@
+// The reset and shift primitives should work as was presented in class (see the notes about continuations). 
+// In a reset(f) call, f is a nullary function. If no shift functions are encountered, the value of a reset call
+// is the value returned by f(). In shift(g), g is a one-argument function, where the argument is the current
+// continuation, until the end of the enclosing reset. The continuation itself is a function that takes one 
+// argument, which it evaluates in the context that the continuation captures. It may be useful to work through 
+// the following example and understand why it produces the output shown below it. 
+println (
+  reset (
+    fun (  ) {
+      println("Starting...");
+      var x = shift (
+        fun(k) {
+          var a = k(1);
+          println(a);
+          k(2);
+          return k;
+        }
+      ) + 10;
+      println(x);
+      return x+100;    
+    }
+  )(1000)
+);
+
+//  fun k n = var m = n + 10; print m; return m + 100;
+
+//  var a = k 1; print a; k 2; return k;
+// //  EXPANDED:
+//   var a = (var m = 1 + 10; print m; return m+100); 
+//   print a; 
+//   (var m = 2 + 10; print m; return m+100);
+//   return (fun k n = var m = n + 10; print m; return m + 100;)
+//   print (var m = 1000 + 10; print m; return m + 100;)
+// //REDUCED
+//   var a = (print 11; return 111); // a = 111
+//   print a;
+//   (print 12; return 112) //return value discarded
+//   print (print 1010; return 1110;) //prints return value prints it
+
+
+// (λy.(λz.x y)) (λx.z)
+// \y -> (\z -> x y) (\x -> z)
+// \y -> \x -> x y
+// 

@@ -60,7 +60,7 @@ steps thrds dbg  = do
     -- mapM_ putStrLn ["tid: "++show tid++" ptid: "++ show ptid | (_,_,_,tid, ptid) <- threads]
     -- putStrLn("")
     let (_, mainEnv, _, _, _) = getThread 0 threads
-    running <- filterM (\f -> case f of {(SSkip, _, [], n, _) -> return False ; otherwise -> return True}) threads -- filter out ended threads
+    running <- filterM (\f -> case f of {(SSkip, _, [], n, _) -> return False ; _ -> return True}) threads -- filter out ended threads
     -- let _ = trace "" False
     alive <- filterM (\f -> return $ threadExists (parentId f) running) running -- filter out threads where the parent has stopped
     case alive of
@@ -120,7 +120,7 @@ step ((SAssign s e, env, ctx, tid, ptid) : ts) _ = return ((e, env, SAssign s Ho
 step ((v, env, SAssign s Hole : ctx, tid, ptid) : ts) _ | isValue v = do
   let val = expr2val v
   case findVar s env of
-    (VRef nv ov) -> do
+    (VRef nv ov) ->
       if sameType val ov then writeIORef nv val >> return ((SSkip, env, ctx, tid, ptid):ts)
       else ioError $ userError $ "Cannot assign "++val2type val ++ " to "++val2type ov
     _ -> ioError $ userError $ "Trying to assign to a non-ref \"" ++ s ++ "\""
@@ -157,7 +157,7 @@ step ((ECall (EVal (VPrimFunIO f)) [] vs, env, ctx, tid, ptid) : ts) _ = do
   res  <- f (reverse vs)
   return ((EVal res, env, ctx, tid, ptid):ts)
 step ((ECall f [] _, _, _, _, _) : ts) _ | isValue f = error $ "a call to non-function " ++ show f
--- Reduce on function posi tion
+-- Reduce on function position
 step ((ECall f args [], env, ctx, tid, ptid) : ts) _ | notValue f = return ((f, env, ECall Hole args [] : ctx, tid, ptid):ts)
 step ((f, env, ECall Hole args [] : ctx, tid, ptid) : ts) _ | isValue f = return ((ECall f args [], env, ctx, tid, ptid):ts)
 step ((ECall f (a:args) vs, env, ctx, tid, ptid) : ts) _ | isValue f = return ((a, env, ECall f (Hole:args) vs : ctx, tid, ptid):ts)
@@ -205,12 +205,25 @@ step threads@(f@(EVal (VInt n), env, EJoin Hole : ctx, tid, ptid):ts) _ | thread
 step threads@((EVal (VInt n), env, EJoin Hole : ctx, tid, ptid):ts) _ | not $ threadExists n threads = return ((EVal VVoid, env, ctx, tid, ptid):ts) --return as a void as this it is wrapped in an SExpr
 step ((EVal v, env, EJoin Hole : ctx, tid, ptid) : ts) _ = error "Thread ids can only be integers"
 
+step ((EReset f, env, ctx, tid, ptid) : ts) _ = return $ (f, env, EReset Hole : ctx, tid, ptid) : ts --evaluate to closure
+step ((SSkip, env, EReset Hole : ctx, tid, ptid) : ts) _ = return $ (EVal VVoid, env, ctx, tid, ptid) : ts --No shift found
+step ((v@(EVal (VClosure _ _ _)), env, EReset Hole : ctx, tid, ptid) : ts) _ =
+     return $ (ECall v [] [], env, EReset Hole : ctx, tid, ptid) : ts
+
+step ((EShift f, env, ctx, tid, ptid) : ts) _  = do
+  let nctx = takeWhile notReset ctx
+  return $ (f, env, EVal (VCont env nctx) : ctx, tid, ptid) : ts
+step ((v@(EVal (VClosure _ _ _)), env, EVal (VCont nenv nctx) : ctx, tid, ptid) : ts) _ = 
+  return $ (ECall v [] [], nenv, nctx, tid, ptid) : ts
+
 
 -- If there are nothing more to parse ignore the return value as it cannot be used anyway
-step ((val, env, [], tid, ptid):ts) _| isValue val = return ((SSkip, env, [], tid, ptid):ts)
-
+step ((val, env, [], tid, ptid):ts) _ | isValue val = return ((SSkip, env, [], tid, ptid):ts)
+ 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
 step ((e, env, ctx, tid, ptid) : ts) _ = error $ "Stuck at expression: " ++ show e ++ printInfo env ctx
+
+
 
 escapeHole :: Env -> [Ctx] -> (Ctx -> Maybe a) -> (a, [Ctx])
 escapeHole env ctx f = do
@@ -220,6 +233,9 @@ escapeHole env ctx f = do
                       (oc:_) -> fromMaybe (error "Failed to escape hole") (f oc)
                 (ret, tail octx)
 
+notReset :: Ctx -> Bool
+notReset (EReset _) = False
+notReset _ = True
 
 firstCall :: Ctx -> Maybe Env
 firstCall (ECall (HoleWithEnv e) _ _) = Just e
@@ -227,7 +243,7 @@ firstCall (STry (HoleWithEnv e) s cb) = Just e
 firstCall _ = Nothing
 
 firstTry :: Ctx -> Maybe (Env, String, Stmt)
-firstTry (STry (HoleWithEnv e) s cb) = Just (e,s, cb)
+firstTry (STry (HoleWithEnv e) s cb) = Just (e, s, cb)
 firstTry _ = Nothing
 
 printInfo :: Env -> [Ctx] -> String

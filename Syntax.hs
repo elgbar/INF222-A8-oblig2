@@ -27,6 +27,8 @@ data Ast
   | ESpawn Expr
   | EDetach Expr
   | EJoin Expr
+  | EReset Expr
+  | EShift Expr
 
   | Hole
   | HoleWithEnv Env
@@ -46,6 +48,7 @@ data Value
   | VClosure [String] Stmt Env
   | VPrimFun ([Value] -> Value)
   | VPrimFunIO ([Value] -> IO Value)
+  | VCont Env [Ctx]
 
 instance Show Ast where
   show SSkip = "SSkip"
@@ -76,6 +79,8 @@ instance Show Ast where
   show (EDetach e) = "EDetach(" ++ show e ++ ")"
   show (EJoin e) = "EJoin(" ++ show e ++ ")"
   show (SFor d c i s) = "EFor "++ show d++"; "++show c ++"; "++show i++"{"++show s++"}"
+  show (EReset f) = "EReset"
+  show (EShift f) = "EShift"
 
 isValue, notValue :: Ast -> Bool
 isValue (EVal _) = True
