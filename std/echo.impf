@@ -1,0 +1,10 @@
+var test = fun(){
+
+};
+
+var echo = fun(){
+    var in = readln();
+    println("in: ",in);
+};
+
+echo();
