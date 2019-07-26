@@ -20,7 +20,7 @@ addVars :: [String] -> [Value] -> Env -> Env
 addVars ss vs env = zip ss vs ++ env
 
 findVar :: String -> Env -> Value
-findVar s env = fromMaybe (error $ "failed to find var '" ++ s ++ "' in env " ++ showNoPrim env) (lookup s env)
+findVar s env = fromMaybe (error $ "failed to find var '" ++ s ++ "' in env " ++ valName env) (lookup s env)
 
     -- content -> file -> verbose -> debug -> IO Env
 run :: String -> String -> Bool -> Bool -> IO Env

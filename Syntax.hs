@@ -100,10 +100,18 @@ instance Show Value where
   show (VPrimFun _) = "prim-fun"
   show (VPrimFunIO _) = "prim-fun io"
 
-primitiveNames = [ "__u-", "__u!", "__b+", "__b-", "__b*", "__b/", "__b%", "__b==", "__b!=", "__b<", "__b<=", "__b>", "__b>=", "__b&&", "__b||","print", "println" ]
-
 showNoPrim :: Env -> String
-showNoPrim env = show $ filter (\(p,_) -> p `notElem` primitiveNames) env
+showNoPrim env = show $ filter (\(n,p) -> case p of 
+    VPrimFunIO _ -> False 
+    VPrimFun _ -> False
+    _ -> True
+    ) env
+
+valName :: Env -> String
+valName env = show $ map fst $ filter (\(n,f) -> case f of
+    VPrimFun _ -> False
+    _ -> True
+    ) env
 
 startupCode :: Expr -> Ast
 startupCode blk =  STry blk "__ex" (ECall (EVar "println") [EVal (VString "Uncaught exception: "), EVar "__ex"] [])
