@@ -54,15 +54,15 @@ instance Show Ast where
   show SSkip = "SSkip"
   show (SIf e s1 s2) =
     "SIf (" ++ show e ++ ")?(" ++ show s1 ++ "):(" ++ show s2 ++ ")"
-  show (SWhile e stm) = "SWhile (" ++ show e ++ ") {" ++ show stm ++ "}"
-  show (SBlock stm) = "SBlock {" ++ show stm ++ "}"
-  show (SSeq s1 s2) = show s1 ++ " >> " ++ show s2
+  show (SWhile e stm) = "SWhile " ++ show e ++ " " ++ show stm
+  show (SBlock stm) = "SBlock " ++ show stm
+  show (SSeq s1 s2) = show s1 ++ "\n" ++ show s2 ++ "\n"
   show (SAssign s e) = "SAssign " ++ s ++ "=" ++ show e
   show (SVarDecl s e) = "SVarDecl " ++ s ++ "=" ++ show e
   show (SExpr e) = "SExpr {" ++ show e ++ "}"
   show (SReturn v) = "SReturn " ++ show v
   show (STry b v c) =
-    "STry {" ++ show b ++ "} (" ++ show v ++ ") {" ++ show c ++ "}"
+    "STry {\n" ++ show b ++ "\n} (" ++ show v ++ ") {" ++ show c ++ "}"
   show (SThrow e) = "SThrow " ++ show e
   show (EVal v) = "EVal " ++ show v
   show (EVar str) = "EVar " ++ str

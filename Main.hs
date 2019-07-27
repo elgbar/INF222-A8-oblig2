@@ -13,12 +13,13 @@ main = do
   args <- getArgs
   let verbose = "-v" `elem` args
   let debug = "-d" `elem` args
-  let cleanedArgs = filter (\e -> e `notElem` ["-v", "-d"]) args
+  let code = "-c" `elem` args
+  let cleanedArgs = filter (\e -> e `notElem` ["-v", "-d", "-c"]) args
   let fname =
         if null cleanedArgs
           then error "no filename"
           else head cleanedArgs
   input <- readFile fname
-  run input fname verbose debug
+  run input fname verbose debug code
   return ()
 

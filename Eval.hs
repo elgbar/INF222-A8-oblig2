@@ -22,11 +22,12 @@ findVar :: String -> Env -> Value
 findVar s env = fromMaybe (error $ "failed to find var '" ++ s ++ "' in env " ++ valName env) (lookup s env)
 
     -- content -> file -> verbose -> debug -> IO Env
-run :: String -> String -> Bool -> Bool -> IO Env
-run input fname verbose dbg  =
+run :: String -> String -> Bool -> Bool -> Bool -> IO Env
+run input fname verbose dbg code =
   case parse program fname input of
     Right v -> do
       when verbose $ putStrLn $ pPrint v
+      when code $ print v
       exec v dbg
     Left e -> print e >> error "Failed to parse file"
 
@@ -182,7 +183,7 @@ step ((SSkip, env, STry (HoleWithEnv e) _ _ : ctx, tid, ptid):ts) _ = return ((S
 -- import
 step ((SImport fn, oldEnv, ctx, tid, ptid):ts) dbg = do
    s <- readFile fn
-   env <- run s fn dbg dbg -- should verbosity be passed to step?
+   env <- run s fn dbg dbg False -- should verbosity be passed to step?
    return ((SSkip, oldEnv ++ env, ctx, tid, ptid):ts)
 step ((SEof, env, ctx, tid, ptid) : ts) _ = return ((SSkip, env, [], tid, ptid):ts) -- reached end of file, its here to pass env after an import
 
