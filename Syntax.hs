@@ -16,7 +16,6 @@ data Ast
   | SThrow Expr
   | SImport String
   | SEof -- Skip to the end of the file
-  | SFor Expr Expr Expr Stmt
 
   | EVal Value
   | EVar String
@@ -79,10 +78,9 @@ instance Show Ast where
   show (ESpawn e) = "ESpawn(" ++ show e ++ ")"
   show (EDetach e) = "EDetach(" ++ show e ++ ")"
   show (EJoin e) = "EJoin(" ++ show e ++ ")"
-  show (SFor d c i s) = "EFor "++ show d++"; "++show c ++"; "++show i++"{"++show s++"}"
-  show (EReset f) = "EReset"
-  show (EShift f) = "EShift"
-  show (SAssert msg _) = "SAssert "++ show msg
+  show (EReset f) = "EReset"++ show f
+  show (EShift f) = "EShift"++ show f
+  show (SAssert msg e) = "SAssert "++ show msg ++" "++ show e
 
 isValue, notValue :: Ast -> Bool
 isValue (EVal _) = True

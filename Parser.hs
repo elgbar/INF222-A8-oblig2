@@ -81,16 +81,15 @@ whileStmt = do
 
 forStmt = do
   reserved "for"
-  [dec, tst, inc] <- between (string "(") (string ")") ( do
+  [dec, cond, inc] <- between (string "(") (string ")") ( do
           dec <- varDeclStmts
-          tst <- expr
+          cond <- expr
           semi
           inc <- statement
-          return [dec,tst,inc]
+          return [dec,cond,inc]
         )
   stmt <- statement
-  return $ SFor dec tst inc stmt
-
+  return $ SBlock $ SSeq dec $ SWhile cond $ SSeq stmt inc
 
 block = do
   ss <- braces (many statement)

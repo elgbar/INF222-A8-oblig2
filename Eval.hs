@@ -106,9 +106,6 @@ step ((EVal (VBool False), env, SIf Hole _ s2 : ctx, tid, ptid) : ts) _ = return
 
 step ((w@(SWhile cond s), env, ctx, tid, ptid) : ts) _ = return ((SIf cond (SSeq s w) SSkip, env, ctx, tid, ptid):ts)
 
--- declare the var, then create a while loop where the statement is the given statment plus the incrementor
-step ((SFor dec cond inc s, env,ctx,tid,ptid):ts) _ = return ((SBlock (SSeq dec (SWhile cond (SSeq s inc))),env,ctx,tid,ptid):ts)
-
 -- Variable declaration
 step ((SVarDecl s e, env, ctx, tid, ptid) : ts) _ = return ((e, env, SVarDecl s Hole : ctx, tid, ptid):ts)
 step ((v, env, SVarDecl s Hole : ctx, tid, ptid) : ts) _ | isValue v
@@ -225,7 +222,6 @@ step ((val, env, (SAssert msg Hole):ctx, tid, ptid):ts) _ = error $ "Cannot ass
 step ((val, env, [], tid, ptid):ts) _ | isValue val = return ((SSkip, env, [], tid, ptid):ts)
 
 step ((e, env, ctx, tid, ptid) : ts) _ = error $ "Stuck at expression: " ++ show e ++ printInfo env ctx
-
 
 
 escapeHole :: Env -> [Ctx] -> (Ctx -> Maybe a) -> (a, [Ctx])
