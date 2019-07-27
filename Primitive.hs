@@ -3,6 +3,7 @@ module Primitive where
 import           Control.Monad
 import           Syntax
 
+primitives :: [(String, Value)]
 primitives =
   [ ("__u-", VPrimFun $ \[VInt x] -> VInt $ -x)
   , ("__u!", VPrimFun $ \[VBool x] -> VBool $ not x)
