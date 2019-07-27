@@ -1,5 +1,6 @@
 module Parser (program, parse) where
 
+import Pretty
 import Syntax
 import System.IO
 import Control.Monad
@@ -15,7 +16,7 @@ languageDef =
            , Token.commentLine     = "//"
            , Token.identStart      = letter
            , Token.identLetter     = alphaNum
-           , Token.reservedNames   = words "true false var if while fun ref return try catch reset shift spawn detach join import int bool string"
+           , Token.reservedNames   = words "true false var if while fun ref return try catch reset shift spawn detach join import int bool string assert"
            , Token.reservedOpNames = words "+ - * / % == != < > <= >= && || ! ="
            }
 
@@ -49,6 +50,8 @@ statement =
   forStmt <|>
   block <|>
   returnStmt <|>
+
+  assertStmt <|>
 
   tryStmt <|>
   throwStmt <|>
@@ -158,6 +161,14 @@ exprStmt = do
   semi
   return $ SExpr e
 
+
+assertStmt = do
+  reserved "assert"
+  -- msg <- stringlit
+  e <- expr
+  semi
+  return $ SAssert (pPrint e) e
+
 expr = conjunction `chainl1` binOp "||"
 conjunction = relation `chainl1` binOp "&&"
 relation = do
@@ -232,5 +243,5 @@ atomic = resetExpr <|> shiftExpr <|>
          variable <|> parens expr <|> deref
 atomicOrCall = do
   a <- atomic
-  argss <- many (parens (commaSep expr))
-  return $ foldl (\a arg -> ECall a arg []) a argss
+  args <- many (parens (commaSep expr))
+  return $ foldl (\a arg -> ECall a arg []) a args

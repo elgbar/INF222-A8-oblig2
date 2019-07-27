@@ -51,6 +51,7 @@ instance Pretty Ast where
   pp (EDetach e) = text "detach" <+> pp e
   pp (EJoin e) = text "join" <+> pp e
   pp (SFor d c i s) = text "for (" <+> pp d <+> text "; " <+> pp c <+> text "; " <+> pp i <+> text ") {" $+$ nest 2 (pp s) $+$ text "}"
+  pp (EAssert msg e) = text "assert" <+> text ("\""++msg++"\"") <+> pp e 
 
 instance Pretty Value where
   pp (VInt i)         = integer $ toInteger i

@@ -216,6 +216,11 @@ step ((v@(EVal (VClosure _ _ _)), env, EVal (VCont nenv nctx) : ctx, tid, ptid) 
   return $ (ECall v [] [], nenv, nctx, tid, ptid) : ts
 
 
+step ((SAssert msg e, env, ctx, tid, ptid):ts) _ = return ((e, env, SAssert msg Hole : ctx, tid, ptid):ts)
+step (((EVal (VBool True)), env, (SAssert msg Hole):ctx, tid, ptid):ts) _ = return ((SSkip, env, ctx, tid, ptid):ts)
+step (((EVal (VBool False)), env, (SAssert msg Hole):ctx, tid, ptid):ts) _ = error $ "Assertion failed: " ++ msg
+step ((val, env, (SAssert msg Hole):ctx, tid, ptid):ts) _ = error $ "Cannot assert a non-boolean: "++msg
+
 -- If there are nothing more to parse ignore the return value as it cannot be used anyway
 step ((val, env, [], tid, ptid):ts) _ | isValue val = return ((SSkip, env, [], tid, ptid):ts)
 

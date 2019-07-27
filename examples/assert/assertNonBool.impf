@@ -1,0 +1,3 @@
+println("Expected error: Cannot assert a non-boolean: 1\n");
+
+assert 1;

@@ -1,0 +1,10 @@
+assert true; // should be ignored
+
+bool b = true;
+assert b; //should work also
+
+fun trueFun(){
+    return true;
+}
+assert trueFun();
+println("assert true is true!");

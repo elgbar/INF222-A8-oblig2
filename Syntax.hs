@@ -29,6 +29,7 @@ data Ast
   | EJoin Expr
   | EReset Expr
   | EShift Expr
+  | SAssert String Expr
 
   | Hole
   | HoleWithEnv Env
@@ -81,6 +82,7 @@ instance Show Ast where
   show (SFor d c i s) = "EFor "++ show d++"; "++show c ++"; "++show i++"{"++show s++"}"
   show (EReset f) = "EReset"
   show (EShift f) = "EShift"
+  show (SAssert msg _) = "SAssert "++ show msg
 
 isValue, notValue :: Ast -> Bool
 isValue (EVal _) = True

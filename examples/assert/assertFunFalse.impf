@@ -1,0 +1,3 @@
+println("Expected error: Main: Assertion failed: falseFun()\n");
+fun falseFun(){ return false; }
+assert falseFun();
