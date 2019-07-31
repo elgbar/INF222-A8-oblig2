@@ -29,7 +29,7 @@ primitives =
   , ("__b>=", VPrimFun $ \[VInt x, VInt y] -> VBool $ x >= y)
   , ("__b&&", VPrimFun $ \[VBool x, VBool y] -> VBool $ x && y)
   , ("__b||", VPrimFun $ \[VBool x, VBool y] -> VBool $ x || y)
-  , ("readln", VPrimFunIO $ \_ -> getLine >>= \inp -> return $ VString inp)
+  , ("readln", VPrimFunIO $ \[] -> getLine >>= \inp -> return $ VString inp)
   , ("print", VPrimFunIO $ \args -> mapM_ (putStr . show) args >> return VVoid)
   , ( "println"
     , VPrimFunIO $ \args ->
