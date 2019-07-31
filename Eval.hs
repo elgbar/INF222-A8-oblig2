@@ -143,6 +143,10 @@ step ((v, env, SAssign s Hole : ctx, tid, ptid) : ts) _ | isValue v = do
 
 -- Variable reference: get from environment
 step ((EVar s, env, ctx, tid, ptid) : ts) _ = evaluate ((EVal $ findVar s env, env, ctx, tid, ptid):ts)
+step ((EArrVar s i, env, ctx, tid, ptid) : ts) _ = do
+  let (VArr meat) = findVar s env
+  let expr = meat !! i
+  evaluate ((expr, env, ctx, tid, ptid):ts)
 
 -- Box a value
 step ((ERef e, env, ctx, tid, ptid) : ts) _ = evaluate ((e, env, ERef Hole : ctx, tid, ptid):ts)

@@ -19,6 +19,7 @@ data Ast
 
   | EVal Value
   | EVar String
+  | EArrVar String Int
   | EFun [String] Stmt
   | ECall Expr [Expr] [Value]
   | ERef Expr
@@ -49,6 +50,7 @@ data Value
   | VPrimFun ([Value] -> Value)
   | VPrimFunIO ([Value] -> IO Value)
   | VCont Env [Ctx]
+  | VArr [Expr]
 
 instance Show Ast where
   show SSkip = "SSkip"
@@ -81,6 +83,7 @@ instance Show Ast where
   show (EReset f) = "EReset"++ show f
   show (EShift f) = "EShift"++ show f
   show (SAssert msg e) = "SAssert "++ show msg ++" "++ show e
+  show (EArrVar i index) = "EArrVar "++ i ++ " " ++show index
 
 isValue, notValue :: Ast -> Bool
 isValue (EVal _) = True
@@ -103,6 +106,7 @@ instance Show Value where
     show ss ++ ", stmt=" ++ show s ++ ", env=" ++ showNoPrim e ++ "}"
   show (VPrimFun _) = "prim-fun"
   show (VPrimFunIO _) = "prim-fun io"
+  show (VArr vals) = show vals
 
 showNoPrim :: Env -> String
 showNoPrim env = show $ filter (\(_, p) -> case p of 
@@ -127,10 +131,12 @@ sameType (VClosure _ _ _) (VClosure _ _ _) = True
 sameType (VPrimFunIO _) (VPrimFunIO _) = True
 sameType (VPrimFun _) (VPrimFun _) = True
 sameType (VRef _ v1) (VRef _ v2) = sameType v1 v2
+sameType (VArr _) (VArr _) = True
 sameType _ _ = False
 
 val2type :: Value -> String
 val2type (VInt _)         = "integer"
+val2type (VArr vals)      = "array"
 val2type (VBool _)        = "boolean"
 val2type (VString _)      = "string"
 val2type (VRef _ v)       = "ref " ++ val2type v

@@ -27,6 +27,7 @@ reserved   = Token.reserved   lexer -- parses a reserved name
 reservedOp = Token.reservedOp lexer -- parses an operator
 parens     = Token.parens     lexer -- parses surrounding parenthesis
 braces     = Token.braces     lexer -- parses surrounding braces
+squares    = Token.brackets   lexer -- parses surrounding square brackets
 integer    = Token.integer    lexer -- parses an integer
 natural    = Token.natural    lexer -- parses a natural number
 semi       = Token.semi       lexer -- parses a semicolon
@@ -118,15 +119,18 @@ varDeclStmts =
 -- varDeclStmt :: type of statement -> the parser for statement -> if references are allowed -> IO (parsec things)
 varDeclStmt typ par ref = do
   reserved typ
+  maybeArr <- optionMaybe $ symbol "[" >> symbol "]"
+  let arr = case maybeArr of { Just _ -> True; Nothing -> False}
   i <- identifier
   reservedOp "="
-  e <- if ref then par <|> refType par else par
-  
-  case typ of 
-    "fun" -> return $ SVarDecl i e --do not require a semi at end of functions  
-    _ -> do 
-          semi
-          return $ SVarDecl i e
+  if arr then do
+    e <- squares (commaSep (if ref then par <|> refType par else par))
+    semi
+    return $ SVarDecl i $ EVal $ VArr e
+  else do
+    e <- if ref then par <|> refType par else par
+    semi
+    return $ SVarDecl i e
 
 returnStmt = do
   reserved "return"
@@ -202,8 +206,14 @@ fun = do
   body <- block
   return $ EFun pars body
 
-variable = EVar <$> identifier
-resetExpr = do 
+variable = do
+  i <- identifier
+  arr <- optionMaybe $ squares integer
+  case arr of 
+    Just offset -> return $ EArrVar i (fromIntegral offset)
+    Nothing -> return $ EVar i
+
+resetExpr = do
   reserved "reset"
   f <- parens (do
     reserved "fun"
