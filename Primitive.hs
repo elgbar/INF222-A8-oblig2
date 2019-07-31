@@ -17,12 +17,16 @@ primitives =
     , VPrimFun $ \args ->
         case args of
           [VBool x, VBool y] -> VBool $ x == y
-          [VInt x, VInt y]   -> VBool $ x == y)
+          [VInt x, VInt y]   -> VBool $ x == y
+          [VString x, VString y]   -> VBool $ x == y
+          [v1, v2] -> error $ "No way to compare "++val2type v1 ++" to "++val2type v2)
   , ( "__b!="
     , VPrimFun $ \args ->
         case args of
-          [VBool x, VBool y] -> VBool $ x == y
-          [VInt x, VInt y]   -> VBool $ x == y)
+          [VBool x, VBool y] -> VBool $ not $ x == y
+          [VInt x, VInt y]   -> VBool $ not $ x == y
+          [VString x, VString y] -> VBool $ not $ x == y
+          [v1, v2] -> error $ "No way to compare "++val2type v1 ++" to "++val2type v2)
   , ("__b<", VPrimFun $ \[VInt x, VInt y] -> VBool $ x < y)
   , ("__b<=", VPrimFun $ \[VInt x, VInt y] -> VBool $ x <= y)
   , ("__b>", VPrimFun $ \[VInt x, VInt y] -> VBool $ x > y)
