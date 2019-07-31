@@ -33,6 +33,7 @@ instance Pretty Ast where
   pp (SReturn v) = text "return" <+> pp v
   pp (EVal v) = pp v
   pp (EVar s) = text s
+  pp (EArrVar s i) = text $ s ++ "[" ++ show i ++ "]"
   pp (EFun ss s) =
     text "fun(" <> hcat (punctuate comma (map text ss)) <> text ")" <+> pp s
   pp (ECall e es vs) =
@@ -62,3 +63,4 @@ instance Pretty Value where
   pp (VClosure s b e) = text "closure"
   pp (VPrimFun _)     = text "primfun"
   pp (VPrimFunIO _)   = text "primfun io"
+  pp (VArr vals)      = text "[" <+> text (concatMap (\v -> pPrint v ++ ", ") vals) <+> text "]"
