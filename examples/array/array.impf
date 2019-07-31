@@ -1,0 +1,4 @@
+var[] a = [1, true, "True"];
+assert a[0] == 1;
+assert a[1] == true;
+assert a[2] == "True";
