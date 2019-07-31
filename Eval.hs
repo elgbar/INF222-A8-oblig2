@@ -51,7 +51,6 @@ runInterp env verbose dbg code = do
     Left err -> print err >> return env --if isEOFError e then return() else ioError e
   runInterp env' verbose dbg code
 
-
 type Thread = (Ast, Env, [Ctx], Int, Int)
 
 getNextId :: [Thread] -> Int
@@ -108,8 +107,6 @@ stepN threads dbg n = do
 step :: [Thread] -> Bool -> IO [Thread]
 step ((ast, e, c, tid, ptid) : ts) True | trace ("Evaluating (tid "++show tid++", pid "++show ptid++")\nast: "++ show ast ++ "\n\nctx: " ++ show c ++"\n\nenv: "++ showNoPrim e ++"\n\n\n") False = undefined
 
--- step fr@(SSkip, _, [], _, _) : ts) _ = evaluate [fr]
-
 -- Statement expression: evaluate expression and turn into SSkip
 step ((SExpr e, env, ctx, tid, ptid) : ts) _ = evaluate ((e, env, SExpr Hole : ctx, tid, ptid):ts)
 step ((v, env, SExpr Hole : ctx, tid, ptid) : ts) _ | isValue v = evaluate ((SSkip, env, ctx, tid, ptid):ts)
@@ -141,9 +138,8 @@ step ((v, env, SAssign s Hole : ctx, tid, ptid) : ts) _ | isValue v = do
   case findVar s env of
     (VRef nv ov) ->
       if sameType val ov then writeIORef nv val >> evaluate ((SSkip, env, ctx, tid, ptid):ts)
-      else ioError $ userError $ "Cannot assign "++val2type val ++ " to "++val2type ov
-    _ -> ioError $ userError $ "Trying to assign to a non-ref \"" ++ s ++ "\""
-
+      else error $ "Cannot assign "++val2type val ++ " to "++val2type ov
+    _ -> error $ "Trying to assign to a non-ref \"" ++ s ++ "\""
 
 -- Variable reference: get from environment
 step ((EVar s, env, ctx, tid, ptid) : ts) _ = evaluate ((EVal $ findVar s env, env, ctx, tid, ptid):ts)
@@ -234,7 +230,6 @@ step ((EShift f, env, ctx, tid, ptid) : ts) _  = do
   evaluate $ (f, env, EVal (VCont env nctx) : ctx, tid, ptid) : ts
 step ((v@(EVal (VClosure _ _ _)), env, EVal (VCont nenv nctx) : ctx, tid, ptid) : ts) _ = 
   evaluate $ (ECall v [] [], nenv, nctx, tid, ptid) : ts
-
 
 step ((SAssert msg e, env, ctx, tid, ptid):ts) _ = evaluate ((e, env, SAssert msg Hole : ctx, tid, ptid):ts)
 step (((EVal (VBool True)), env, (SAssert msg Hole):ctx, tid, ptid):ts) _ = evaluate ((SSkip, env, ctx, tid, ptid):ts)

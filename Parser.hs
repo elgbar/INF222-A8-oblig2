@@ -101,7 +101,6 @@ assignStmt = do
   semi
   return $ SAssign i e
 
-
 namedFun = do
   reserved "fun"
   i <- identifier
@@ -159,7 +158,6 @@ exprStmt = do
   e <- expr
   semi
   return $ SExpr e
-
 
 assertStmt = do
   reserved "assert"

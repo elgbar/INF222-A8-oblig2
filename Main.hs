@@ -16,7 +16,8 @@ main = do
   let code = "-c" `elem` args
   let interpreter = "-i" `elem` args
   let cleanedArgs = filter (\e -> e `notElem` ["-v", "-d", "-c", "-i"]) args
-  if interpreter then 
+  if interpreter then do
+    putStrLn "Language started in interactive mode"
     runInterp [] verbose debug code
   else do
     let fname =

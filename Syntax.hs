@@ -85,7 +85,6 @@ instance Show Ast where
 isValue, notValue :: Ast -> Bool
 isValue (EVal _) = True
 isValue _        = False
-
 notValue = not . isValue
 
 expr2val :: Expr -> Value
@@ -106,17 +105,14 @@ instance Show Value where
   show (VPrimFunIO _) = "prim-fun io"
 
 showNoPrim :: Env -> String
-showNoPrim env = show $ filter (\(n,p) -> case p of 
+showNoPrim env = show $ filter (\(_, p) -> case p of 
     VPrimFunIO _ -> False 
     VPrimFun _ -> False
     _ -> True
     ) env
 
 valName :: Env -> String
-valName env = show $ map fst $ filter (\(n,f) -> case f of
-    VPrimFun _ -> False
-    _ -> True
-    ) env
+valName env = show $ map fst $ filter (\(_,f) -> case f of; VPrimFun _ -> False; _ -> True) env
 
 startupCode :: Expr -> Ast
 startupCode blk =  STry blk "__ex" (ECall (EVar "println") [EVal (VString "Uncaught exception: "), EVar "__ex"] [])
@@ -132,7 +128,6 @@ sameType (VPrimFunIO _) (VPrimFunIO _) = True
 sameType (VPrimFun _) (VPrimFun _) = True
 sameType (VRef _ v1) (VRef _ v2) = sameType v1 v2
 sameType _ _ = False
-
 
 val2type :: Value -> String
 val2type (VInt _)         = "integer"
