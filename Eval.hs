@@ -205,10 +205,15 @@ step ((ECall (EVal (VClosure pars s cloEnv)) [] vs, env, ctx, tid, ptid) : ts) _
 step ((SSkip, _, ECall (HoleWithEnv env) _ _ : ctx, tid, ptid) : ts) _ = evaluate ((EVal VVoid, env, ctx, tid, ptid):ts)
   -- function body fully evaluated, evaluate VVoid
 
-step ((ECall (EVal (VPrimFun f)) [] vs, env, ctx, tid, ptid) : ts) _ = evaluate ((EVal $ f (reverse vs), env, ctx, tid, ptid):ts)
+step ((ECall (EVal (VPrimFun f)) [] vs, env, ctx, tid, ptid) : ts) _ = do
+  val <- (catch :: IO a -> (PatternMatchFail -> IO a) -> IO a) (evaluate (f (reverse vs))) (error $ "Invalid arguments for the primitive function " ++ show vs)
+  evaluate ((EVal val, env, ctx, tid, ptid):ts)
 step ((ECall (EVal (VPrimFunIO f)) [] vs, env, ctx, tid, ptid) : ts) _ = do
-  res  <- f (reverse vs)
-  evaluate ((EVal res, env, ctx, tid, ptid):ts)
+  res  <- (try :: IO a -> IO (Either PatternMatchFail a)) $ f (reverse vs)
+  case res of
+    Right v ->
+      evaluate ((EVal v, env, ctx, tid, ptid):ts)
+    Left e -> error $ "Invalid arguments for the primitive IO function " ++ show vs
 step ((ECall f [] _, _, _, _, _) : ts) _ | isValue f = error $ "a call to non-function " ++ show f
 -- Reduce on function position
 step ((ECall f args [], env, ctx, tid, ptid) : ts) _ | notValue f = evaluate ((f, env, ECall Hole args [] : ctx, tid, ptid):ts)
