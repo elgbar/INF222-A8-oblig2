@@ -99,7 +99,7 @@ instance Show Value where
   show (VInt i) = show i
   show (VBool b) = show b
   show (VString s) = s
-  show (VRef _ _) = "ref"
+  show (VRef _ t) = "ref "++val2type t
   show VVoid = "void"
   show (VClosure ss s e) =
     "closure {strs=" ++
