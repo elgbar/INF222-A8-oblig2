@@ -9,7 +9,9 @@ data Ast
   | SBlock Stmt
   | SSeq Stmt Stmt
   | SAssign String Expr
+  | SArrAssign String Int Expr
   | SVarDecl String Expr
+  | SVarDeclRef String [Expr] [Expr] -- todo -> done
   | SExpr Expr
   | SReturn Expr
   | STry Stmt String Stmt
@@ -60,7 +62,9 @@ instance Show Ast where
   show (SBlock stm) = "SBlock " ++ show stm
   show (SSeq s1 s2) = show s1 ++ "\n" ++ show s2 ++ "\n"
   show (SAssign s e) = "SAssign " ++ s ++ "=" ++ show e
+  show (SArrAssign s i e) = "SArrAssign " ++ s ++ "["++show i++"] =" ++ show e
   show (SVarDecl s e) = "SVarDecl " ++ s ++ "=" ++ show e
+  show (SVarDeclRef s todo done) = "SVarDeclRef " ++ s ++ " todo " ++ show todo ++ " done "++ show done
   show (SExpr e) = "SExpr {" ++ show e ++ "}"
   show (SReturn v) = "SReturn " ++ show v
   show (STry b v c) =
@@ -92,6 +96,7 @@ notValue = not . isValue
 
 expr2val :: Expr -> Value
 expr2val (EVal v) = v
+expr2val e = error $ "Expression is not a value: " ++ show e
 
 type Env = [(String, Value)]
 

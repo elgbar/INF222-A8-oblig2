@@ -29,6 +29,7 @@ instance Pretty Ast where
       seq2list s            = [s]
   pp (SVarDecl s e) = text "var" <+> text s <+> text "=" <+> pp e <> text ";"
   pp (SAssign s e) = text s <+> text "=" <+> pp e <> text ";"
+  pp (SArrAssign s i e) = text s <> text ("[" ++ show i ++ "]") <+> text "=" <+> pp e <> text ";"
   pp (SReturn (EVal VVoid)) = text "return"
   pp (SReturn v) = text "return" <+> pp v
   pp (EVal v) = pp v

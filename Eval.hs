@@ -131,25 +131,56 @@ step ((w@(SWhile cond s), env, ctx, tid, ptid) : ts) _ = evaluate ((SIf cond (SS
 
 -- Variable declaration
 step ((SVarDecl s e, env, ctx, tid, ptid) : ts) _ = evaluate ((e, env, SVarDecl s Hole : ctx, tid, ptid):ts)
-step ((v, env, SVarDecl s Hole : ctx, tid, ptid) : ts) _ | isValue v
-  = evaluate ((SSkip, addVar s (expr2val v) env, ctx, tid, ptid):ts)
+step ((v, env, SVarDecl s Hole : ctx, tid, ptid) : ts) _ | isValue v = do
+  let val = expr2val v
+  case val of 
+    -- no need to evaluate if no elements
+    (VArr arr) -> evaluate $ (SSkip, env, SVarDeclRef s arr [] : ctx, tid, ptid) : ts
+    val -> evaluate ((SSkip, addVar s val env, ctx, tid, ptid):ts)
+
+step ((SSkip, env, SVarDeclRef s [] done : ctx, tid, ptid) : ts) _ = 
+  evaluate ((SSkip, addVar s (VArr done) env, ctx, tid, ptid):ts)
+
+step ((SSkip, env, SVarDeclRef s todo done : ctx, tid, ptid) : ts) _ = 
+  case head todo of
+    e@(ERef val) -> evaluate $ (e, env, SVarDeclRef s (tail todo) done : ctx, tid, ptid) : ts
+    val ->  evaluate $ (SSkip, env, SVarDeclRef s (tail todo) (done ++ [val]) : ctx, tid, ptid) : ts
+
+step ((val, env, SVarDeclRef s todo done : ctx, tid, ptid) : ts) _ | isValue val= 
+  evaluate $ (SSkip, env, SVarDeclRef s todo (done ++ [val]) : ctx, tid, ptid) : ts
+
 
 -- Assignment
 step ((SAssign s e, env, ctx, tid, ptid) : ts) _ = evaluate ((e, env, SAssign s Hole : ctx, tid, ptid):ts)
 step ((v, env, SAssign s Hole : ctx, tid, ptid) : ts) _ | isValue v = do
   let val = expr2val v
   case findVar s env of
-    (VRef nv ov) ->
-      if sameType val ov then writeIORef nv val >> evaluate ((SSkip, env, ctx, tid, ptid):ts)
-      else error $ "Cannot assign "++val2type val ++ " to "++val2type ov
+    (VRef nv ot) ->
+      if sameType val ot then writeIORef nv val >> evaluate ((SSkip, env, ctx, tid, ptid):ts)
+      else error $ "Cannot assign "++val2type val ++ " to "++val2type ot
     _ -> error $ "Trying to assign to a non-ref \"" ++ s ++ "\""
+
+step ((SArrAssign s i e, env, ctx, tid, ptid) : ts) _ = evaluate ((e, env, SArrAssign s i Hole : ctx, tid, ptid):ts)
+step ((v, env, SArrAssign s i Hole : ctx, tid, ptid) : ts) _ | isValue v = 
+  case findVar s env of
+    (VArr arr) -> do
+      let elem = expr2val $ arr !! i
+      let val = expr2val v
+      case elem of
+        (VRef nv ot) ->
+          if sameType val ot then writeIORef nv val >> evaluate ((SSkip, env, ctx, tid, ptid):ts)
+          else error $ "Cannot assign " ++ val2type val ++ " to " ++val2type ot
+        _ -> error $ "Trying to assign to a non-ref \"" ++ s ++ "\""
+    _ -> error $ "arr \"" ++ s ++ "\""
 
 -- Variable reference: get from environment
 step ((EVar s, env, ctx, tid, ptid) : ts) _ = evaluate ((EVal $ findVar s env, env, ctx, tid, ptid):ts)
-step ((EArrVar s i, env, ctx, tid, ptid) : ts) _ = do
-  let (VArr meat) = findVar s env
-  let expr = meat !! i
-  evaluate ((expr, env, ctx, tid, ptid):ts)
+step ((EArrVar s i, env, ctx, tid, ptid) : ts) _ = 
+  case findVar s env of 
+    (VArr arr) -> do
+      let expr = arr !! i
+      evaluate ((expr, env, ctx, tid, ptid):ts)
+    _ -> error "Tried to get element at index on a non-array"
 
 -- Box a value
 step ((ERef e, env, ctx, tid, ptid) : ts) _ = evaluate ((e, env, ERef Hole : ctx, tid, ptid):ts)

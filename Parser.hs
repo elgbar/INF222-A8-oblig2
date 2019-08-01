@@ -60,6 +60,7 @@ statement =
   importStmt <|>
 
   varDeclStmts <|>
+  assignArrStmt <|>
   assignStmt <|>
   exprStmt
 
@@ -95,6 +96,12 @@ forStmt = do
 block = do
   ss <- braces (many statement)
   return $ SBlock $ foldr SSeq SSkip ss
+
+assignArrStmt = do
+  (v, i) <- try (identifier >>= \j -> squares integer >>= \i -> reservedOp "=" >> return (j,i))
+  e <- expr
+  semi
+  return $ SArrAssign v (fromInteger i) e
 
 assignStmt = do
   i <- try (identifier >>= \j -> reservedOp "=" >> return j)
