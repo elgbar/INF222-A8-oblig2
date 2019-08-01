@@ -17,7 +17,9 @@ data Ast
   | STry Stmt String Stmt
   | SThrow Expr
   | SImport String
+  | SAssert String Expr
   | SEof -- Skip to the end of the file
+
 
   | EVal Value
   | EVar String
@@ -31,7 +33,6 @@ data Ast
   | EJoin Expr
   | EReset Expr
   | EShift Expr
-  | SAssert String Expr
 
   | Hole
   | HoleWithEnv Env
@@ -68,7 +69,7 @@ instance Show Ast where
   show (SExpr e) = "SExpr {" ++ show e ++ "}"
   show (SReturn v) = "SReturn " ++ show v
   show (STry b v c) =
-    "STry {\n" ++ show b ++ "\n} (" ++ show v ++ ") {" ++ show c ++ "}"
+    "STry {" ++ show b ++ "} (" ++ show v ++ ") {" ++ show c ++ "}"
   show (SThrow e) = "SThrow " ++ show e
   show (EVal v) = "EVal " ++ show v
   show (EVar str) = "EVar " ++ str
@@ -141,7 +142,7 @@ sameType _ _ = False
 
 val2type :: Value -> String
 val2type (VInt _)         = "integer"
-val2type (VArr vals)      = "array"
+val2type (VArr _)         = "array"
 val2type (VBool _)        = "boolean"
 val2type (VString _)      = "string"
 val2type (VRef _ v)       = "ref " ++ val2type v

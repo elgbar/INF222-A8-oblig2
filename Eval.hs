@@ -23,7 +23,6 @@ addVars ss vs env = zip ss vs ++ env
 findVar :: String -> Env -> Value
 findVar s env = fromMaybe (error $ "failed to find var '" ++ s ++ "' in env " ++ valName env) (lookup s env)
 
-    -- content -> file -> verbose -> debug -> print assembly -> IO Env
 run :: String -> String -> Env -> Bool -> Bool -> Bool -> IO Env
 run input fname env verbose dbg code = 
   case parse program fname input of
@@ -31,27 +30,20 @@ run input fname env verbose dbg code =
       when verbose $ putStrLn $ pPrint v
       when code $ print v
       exec v env dbg
-      -- case try () of
-      --   Right env' -> env'
-      --   Left e -> do
-      --     putStrLn "Failed to evaluate expression"
-      --     print e
-      --     evaluate env
-        
     Left e -> do
       putStrLn "Failed to parse file"
       print e
-      evaluate env
+      return env
 
 runInterp :: Env -> Bool -> Bool -> Bool -> IO Env
 runInterp env verbose dbg code = do
   putStr "> "
-  hFlush stdout -- force flushing of text
+  hFlush stdout -- force flushing of std out
   line <- getLine
   ran <- (try :: IO a -> IO (Either ErrorCall a)) $ run line "<console>" env verbose dbg code 
   env' <- case ran of
-    Right env' -> return env' --runInterp env' verbose dbg code
-    Left err -> print err >> return env --if isEOFError e then return() else ioError e
+    Right env' -> return env'
+    Left err -> print err >> return env
   runInterp env' verbose dbg code
 
 type Thread = (Ast, Env, [Ctx], Int, Int)
@@ -84,7 +76,7 @@ steps thrds dbg  = do
     -- mapM_ putStrLn ["tid: "++show tid++" ptid: "++ show ptid | (_,_,_,tid, ptid) <- threads]
     -- putStrLn("")
     let (_, mainEnv, _, _, _) = getThread 0 threads
-    running <- filterM (\f -> case f of {(SSkip, _, [], n, _) -> evaluate False ; _ -> evaluate True}) threads -- filter out ended threads
+    running <- filterM (\f -> case f of {(SSkip, _, [], n, _) -> return False ; _ -> return True}) threads -- filter out ended threads
     -- let _ = trace "" False
     alive <- filterM (\f -> evaluate $ threadExists (parentId f) running) running -- filter out threads where the parent has stopped
     case alive of
@@ -99,7 +91,7 @@ stepN threads dbg n = do
   case t of
     _ | dbg, trace ("\nStep: "++show n) False -> undefined
     -- Nothing more to evaluate, main thread is still needed
-    (SSkip, _, [], _, _) -> if (threadId t == 0) then evaluate [t] else evaluate ts
+    (SSkip, _, [], _, _) -> evaluate $ if threadId t == 0 then [t] else ts
     -- When a thread is waiting for another thread make sure it uses as little resources as possible
     -- Note this is fair as nothing will happen to the other threads while this (waiting) thread is running
     (_, _, EJoin Hole : _, _, _) -> evaluate $ ts ++ [t]
@@ -192,10 +184,10 @@ step ((v, env, ERef Hole : ctx, tid, ptid) : ts) _ | isValue v = do
 -- Dereference a ref
 step ((EDeref e, env, ctx, tid, ptid) : ts) _ = evaluate ((e, env, EDeref Hole : ctx, tid, ptid):ts)
 step ((v, env, EDeref Hole : ctx, tid, ptid) : ts) _ | isValue v = do
-  let (VRef nv ov) = expr2val v
+  let (VRef nv ot) = expr2val v
   v' <- readIORef nv
-  if sameType v' ov then evaluate ((EVal v', env, ctx, tid, ptid):ts)
-  else error $ "Inconsistent type of derefered value. Curr val: "++val2type v'++" origial val: " ++ val2type ov
+  if sameType v' ot then evaluate ((EVal v', env, ctx, tid, ptid):ts)
+  else error $ "Inconsistent type of derefered value. Current type: "++val2type v'++" origial type: " ++ val2type ot
 
 -- Function becomes a closure
 step ((EFun pars body, env, ctx, tid, ptid) : ts) _ = evaluate ((EVal $ VClosure pars body env, env, ctx, tid, ptid):ts)
