@@ -12,6 +12,7 @@ import Parser
 import Pretty
 import Syntax
 import System.Environment (getArgs)
+import System.IO
 
 addVar :: String -> Value -> Env -> Env
 addVar s v env = (s, v):env
@@ -44,6 +45,8 @@ run input fname env verbose dbg code =
 
 runInterp :: Env -> Bool -> Bool -> Bool -> IO Env
 runInterp env verbose dbg code = do
+  putStr "> "
+  hFlush stdout -- force flushing of text
   line <- getLine
   ran <- (try :: IO a -> IO (Either ErrorCall a)) $ run line "<console>" env verbose dbg code 
   env' <- case ran of
