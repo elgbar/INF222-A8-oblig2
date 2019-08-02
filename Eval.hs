@@ -7,6 +7,7 @@ import Data.IORef
 import Data.Maybe
 import Control.Monad
 import Control.Exception
+import System.IO.Unsafe
 import Data.Either
 import Parser
 import Pretty
@@ -22,6 +23,9 @@ addVars ss vs env = zip ss vs ++ env
 
 findVar :: String -> Env -> Value
 findVar s env = fromMaybe (error $ "failed to find var '" ++ s ++ "' in env " ++ valName env) (lookup s env)
+
+remVar :: String -> Env -> Env
+remVar s = filter $ \(n,_) -> n /= s
 
 run :: String -> String -> Env -> Bool -> Bool -> Bool -> IO Env
 run input fname env verbose dbg code = 
@@ -150,6 +154,10 @@ step ((v, env, SAssign s Hole : ctx, tid, ptid) : ts) _ | isValue v = do
     (VRef nv ot) ->
       if sameType val ot then writeIORef nv val >> evaluate ((SSkip, env, ctx, tid, ptid):ts)
       else error $ "Cannot assign "++val2type val ++ " to "++val2type ot
+    (VArr as) ->
+      case val of 
+        nas@(VArr _) -> evaluate $ (SVarDecl s (EVal nas), remVar s env, ctx, tid, ptid) : ts
+        _ -> error "Trying to assign something else than an array to an array"
     _ -> error $ "Trying to assign to a non-ref \"" ++ s ++ "\""
 
 step ((SArrAssign s i e, env, ctx, tid, ptid) : ts) _ = evaluate ((e, env, SArrAssign s i Hole : ctx, tid, ptid):ts)
@@ -166,7 +174,10 @@ step ((v, env, SArrAssign s i Hole : ctx, tid, ptid) : ts) _ | isValue v =
     _ -> error $ "arr \"" ++ s ++ "\""
 
 -- Variable reference: get from environment
-step ((EVar s, env, ctx, tid, ptid) : ts) _ = evaluate ((EVal $ findVar s env, env, ctx, tid, ptid):ts)
+step ((EVar s, env, ctx, tid, ptid) : ts) _ = 
+  case findVar s env of 
+    v@(VRef nv ot) -> evaluate ((EDeref (EVal v), env, ctx, tid, ptid):ts)
+    v -> evaluate ((EVal v, env, ctx, tid, ptid):ts)
 step ((EArrVar s i, env, ctx, tid, ptid) : ts) _ = 
   case findVar s env of 
     (VArr arr) -> do
@@ -184,10 +195,19 @@ step ((v, env, ERef Hole : ctx, tid, ptid) : ts) _ | isValue v = do
 -- Dereference a ref
 step ((EDeref e, env, ctx, tid, ptid) : ts) _ = evaluate ((e, env, EDeref Hole : ctx, tid, ptid):ts)
 step ((v, env, EDeref Hole : ctx, tid, ptid) : ts) _ | isValue v = do
-  let (VRef nv ot) = expr2val v
-  v' <- readIORef nv
-  if sameType v' ot then evaluate ((EVal v', env, ctx, tid, ptid):ts)
-  else error $ "Inconsistent type of derefered value. Current type: "++val2type v'++" origial type: " ++ val2type ot
+  let e = expr2val v
+  case e of 
+    (VRef nv ot) -> do
+        v' <- readIORef nv
+        if sameType v' ot then evaluate ((EVal v', env, ctx, tid, ptid):ts)
+        else error $ "Inconsistent type of derefered value. Current type: "++val2type v'++" origial type: " ++ val2type ot
+    (VArr xs) ->
+        evaluate $ (EVal (VArr (readRef xs)), env, ctx, tid, ptid) : ts
+    _ -> error "Trying to dereference a non-ref"
+
+
+step ((v@(EVal (VRef nv ot)), env, ctx, tid, ptid) : ts) _ =
+  evaluate $ (EDeref v, env, ctx, tid, ptid) : ts
 
 -- Function becomes a closure
 step ((EFun pars body, env, ctx, tid, ptid) : ts) _ = evaluate ((EVal $ VClosure pars body env, env, ctx, tid, ptid):ts)
@@ -300,3 +320,6 @@ firstTry _ = Nothing
 
 printInfo :: Env -> [Ctx] -> String
 printInfo env ctx =  "\n\nContext: " ++ show ctx ++"\n\nEnvironment: "  ++ showNoPrim env
+
+readRef :: [Expr] -> [Expr]
+readRef = map (\a -> case a of {EVal (VRef nv _) -> EVal $ unsafePerformIO $ readIORef nv;_ -> a})
