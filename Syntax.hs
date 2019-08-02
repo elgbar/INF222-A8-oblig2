@@ -58,10 +58,10 @@ data Value
 instance Show Ast where
   show SSkip = "SSkip"
   show (SIf e s1 s2) =
-    "SIf (" ++ show e ++ ")?(" ++ show s1 ++ "):(" ++ show s2 ++ ")"
+    "SIf (" ++ show e ++ ") ? " ++ show s1 ++ " : " ++ show s2
   show (SWhile e stm) = "SWhile " ++ show e ++ " " ++ show stm
   show (SBlock stm) = "SBlock " ++ show stm
-  show (SSeq s1 s2) = show s1 ++ "\n" ++ show s2 ++ "\n"
+  show (SSeq s1 s2) = show s1 ++ ">>" ++ show s2
   show (SAssign s e) = "SAssign " ++ s ++ "=" ++ show e
   show (SArrAssign s i e) = "SArrAssign " ++ s ++ "["++show i++"] =" ++ show e
   show (SVarDecl s e) = "SVarDecl " ++ s ++ "=" ++ show e
@@ -112,7 +112,10 @@ instance Show Value where
     show ss ++ ", stmt=" ++ show s ++ ", env=" ++ showNoPrim e ++ "}"
   show (VPrimFun _) = "prim-fun"
   show (VPrimFunIO _) = "prim-fun io"
-  show (VArr vals) = show vals
+  show (VArr vals) = show $ map (\ev -> case ev of
+                                          EVal v -> v
+                                          _ -> VString $ show ev
+                                ) vals
 
 showNoPrim :: Env -> String
 showNoPrim env = show $ filter (\(_, p) -> case p of 
@@ -122,7 +125,10 @@ showNoPrim env = show $ filter (\(_, p) -> case p of
     ) env
 
 valName :: Env -> String
-valName env = show $ map fst $ filter (\(_,f) -> case f of; VPrimFun _ -> False; _ -> True) env
+valName env = show $ map fst $ filter (\(_,f) -> case f of
+                                                    VPrimFun _ -> False
+                                                    _ -> True
+                                      ) env
 
 startupCode :: Expr -> Ast
 startupCode blk =  STry blk "__ex" (ECall (EVar "println") [EVal (VString "Uncaught exception: "), EVar "__ex"] [])
