@@ -1,0 +1,19 @@
+fun fizzbuzz(range){
+    var[] outOrg = [ref 0, ": "];
+    var[] out = ref [];
+    for(int i = ref 0; *i < range; i = *i + 1;){
+        out = outOrg;
+        out[0] = *i;
+        if(*i % 3 == 0) {
+            out = add(*out, "fizz");
+        }
+        if(*i % 5 == 0){
+            out = add(*out, "buzz");
+        }
+        if(length(*out) > 2){
+            println(*out);
+        }
+    }
+}
+
+fizzbuzz(100);

@@ -1,0 +1,12 @@
+fun fib(end){
+    int x = ref 0;
+    int y = ref 1;
+    for(int i = ref 0; *i < end; i = *i + 1;){
+        println(*x);
+        var tmp = *y;
+        y = *y + * x;
+        x = tmp; 
+    }
+}
+
+fib(10);
