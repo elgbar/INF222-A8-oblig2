@@ -131,9 +131,11 @@ varDeclStmt typ par ref = do
   i <- identifier
   reservedOp "="
   if arr then do
+    arrRef <- optionMaybe $ reserved "ref" --declare this array as a ref
     e <- squares (commaSep (if ref then par <|> refType par else par))
     semi
-    return $ SVarDecl i $ EVal $ VArr e
+    let val = if isJust arrRef then ERef $ EVal $ VArr e else EVal $ VArr e
+    return $ SVarDecl i val
   else do
     e <- if ref then par <|> refType par else par
     semi
@@ -259,3 +261,8 @@ atomicOrCall = do
   a <- atomic
   args <- many (parens (commaSep expr))
   return $ foldl (\a arg -> ECall a arg []) a args
+
+
+isJust :: Maybe a -> Bool
+isJust (Just _) = True
+isJust Nothing = False

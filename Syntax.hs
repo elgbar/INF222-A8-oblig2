@@ -50,8 +50,8 @@ data Value
   | VRef (IORef Value) Value
   | VVoid
   | VClosure [String] Stmt Env
-  | VPrimFun ([Value] -> Value)
-  | VPrimFunIO ([Value] -> IO Value)
+  | VPrimFun String ([Value] -> Value)
+  | VPrimFunIO String ([Value] -> IO Value)
   | VCont Env [Ctx]
   | VArr [Expr]
 
@@ -110,38 +110,39 @@ instance Show Value where
   show (VClosure ss s e) =
     "closure {strs=" ++
     show ss ++ ", stmt=" ++ show s ++ ", env=" ++ showNoPrim e ++ "}"
-  show (VPrimFun _) = "prim-fun"
-  show (VPrimFunIO _) = "prim-fun io"
-  show (VArr vals) = show $ map (\ev -> case ev of
-                                          EVal v -> v
-                                          _ -> VString $ show ev
+  show (VPrimFun n _) = "prim-fun "++n
+  show (VPrimFunIO n _) = "prim-fun io "++n
+  show (VArr vals) = concatMap (\ev -> case ev of
+                                          EVal v -> show v
+                                          _ -> show ev
                                 ) vals
 
 showNoPrim :: Env -> String
 showNoPrim env = show $ filter (\(_, p) -> case p of 
-    VPrimFunIO _ -> False 
-    VPrimFun _ -> False
+    VPrimFunIO _ _ -> False 
+    VPrimFun _ _ -> False
     _ -> True
     ) env
 
 valName :: Env -> String
-valName env = show $ map fst $ filter (\(_,f) -> case f of
-                                                    VPrimFun _ -> False
-                                                    _ -> True
-                                      ) env
+valName env = show $ map (\(n,f) -> case f of
+                                      VPrimFun pn _ -> pn
+                                      VPrimFunIO pn _ -> pn
+                                      _ -> n
+                          ) $ filter (\(n,f) -> case n of { '_':_ -> False; _ -> True}) env
 
 startupCode :: Expr -> Ast
 startupCode blk =  STry blk "__ex" (ECall (EVar "println") [EVal (VString "Uncaught exception: "), EVar "__ex"] [])
 
-
 sameType :: Value -> Value -> Bool
-sameType VVoid VVoid = True
+sameType VVoid _ = True --void is equal to everything
+sameType _ VVoid = True
 sameType (VInt _) (VInt _) = True
 sameType (VBool _) (VBool _) = True
 sameType (VString _) (VString _) = True
 sameType (VClosure _ _ _) (VClosure _ _ _) = True
-sameType (VPrimFunIO _) (VPrimFunIO _) = True
-sameType (VPrimFun _) (VPrimFun _) = True
+sameType (VPrimFunIO _ _) (VPrimFunIO _ _) = True
+sameType (VPrimFun _ _) (VPrimFun _ _) = True
 sameType (VRef _ v1) (VRef _ v2) = sameType v1 v2
 sameType (VArr _) (VArr _) = True
 sameType _ _ = False
@@ -154,5 +155,5 @@ val2type (VString _)      = "string"
 val2type (VRef _ v)       = "ref " ++ val2type v
 val2type VVoid            = "void"
 val2type (VClosure _ _ _) = "closure"
-val2type (VPrimFun _)     = "primfun"
-val2type (VPrimFunIO _)   = "primfun io"
+val2type (VPrimFun _ _)     = "primfun"
+val2type (VPrimFunIO _ _)   = "primfun io"

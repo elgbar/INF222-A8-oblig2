@@ -151,39 +151,32 @@ step ((SAssign s e, env, ctx, tid, ptid) : ts) _ = evaluate ((e, env, SAssign s 
 step ((v, env, SAssign s Hole : ctx, tid, ptid) : ts) _ | isValue v = do
   let val = expr2val v
   case findVar s env of
-    (VRef nv ot) ->
+    (VRef nv ot) -> --assigning a value to a ref
       if sameType val ot then writeIORef nv val >> evaluate ((SSkip, env, ctx, tid, ptid):ts)
       else error $ "Cannot assign "++val2type val ++ " to "++val2type ot
-    (VArr as) ->
-      case val of 
-        nas@(VArr _) -> evaluate $ (SVarDecl s (EVal nas), remVar s env, ctx, tid, ptid) : ts
-        _ -> error "Trying to assign something else than an array to an array"
-    _ -> error $ "Trying to assign to a non-ref \"" ++ s ++ "\""
+    _ -> error $ "Trying to assign "++val2type val++" "++show val++" to a non-ref " ++ show s
 
 step ((SArrAssign s i e, env, ctx, tid, ptid) : ts) _ = evaluate ((e, env, SArrAssign s i Hole : ctx, tid, ptid):ts)
-step ((v, env, SArrAssign s i Hole : ctx, tid, ptid) : ts) _ | isValue v = 
-  case findVar s env of
-    (VArr arr) -> do
-      let elem = expr2val $ arr !! i
-      let val = expr2val v
-      case elem of
-        (VRef nv ot) ->
-          if sameType val ot then writeIORef nv val >> evaluate ((SSkip, env, ctx, tid, ptid):ts)
-          else error $ "Cannot assign " ++ val2type val ++ " to " ++val2type ot
-        _ -> error $ "Trying to assign to a non-ref \"" ++ s ++ "\""
-    _ -> error $ "arr \"" ++ s ++ "\""
+step ((v, env, SArrAssign s i Hole : ctx, tid, ptid) : ts) _ | isValue v = do
+  let var = findVar s env
+  let arr = arrVal2Arr s var
+  let elem = expr2val $ arr !! i -- old element 
+  let val = expr2val v -- new element
+  case elem of
+    (VRef nv ot) -> -- copy of step((ERef ...
+      if sameType val ot then writeIORef nv val >> evaluate ((SSkip, env, ctx, tid, ptid):ts)
+      else error $ "Cannot assign " ++ val2type val ++ " to " ++val2type ot
+    _ -> error $ "Trying to assign to a non-ref \"" ++ s ++ "\""
 
 -- Variable reference: get from environment
 step ((EVar s, env, ctx, tid, ptid) : ts) _ = 
   case findVar s env of 
-    v@(VRef nv ot) -> evaluate ((EDeref (EVal v), env, ctx, tid, ptid):ts)
+    -- v@(VRef nv ot) -> evaluate ((EDeref (EVal v), env, ctx, tid, ptid):ts)
     v -> evaluate ((EVal v, env, ctx, tid, ptid):ts)
-step ((EArrVar s i, env, ctx, tid, ptid) : ts) _ = 
-  case findVar s env of 
-    (VArr arr) -> do
-      let expr = arr !! i
-      evaluate ((expr, env, ctx, tid, ptid):ts)
-    _ -> error "Tried to get element at index on a non-array"
+
+step ((EArrVar s i, env, ctx, tid, ptid) : ts) _ = do
+  let arr = arrVal2Arr s $ findVar s env
+  evaluate ((arr !! i, env, ctx, tid, ptid):ts)
 
 -- Box a value
 step ((ERef e, env, ctx, tid, ptid) : ts) _ = evaluate ((e, env, ERef Hole : ctx, tid, ptid):ts)
@@ -199,15 +192,18 @@ step ((v, env, EDeref Hole : ctx, tid, ptid) : ts) _ | isValue v = do
   case e of 
     (VRef nv ot) -> do
         v' <- readIORef nv
-        if sameType v' ot then evaluate ((EVal v', env, ctx, tid, ptid):ts)
+        if sameType v' ot then
+          case v' of
+            VArr arr -> evaluate ((EDeref (EVal v'), env, ctx, tid, ptid):ts)
+            _ -> evaluate ((EVal v', env, ctx, tid, ptid):ts)
         else error $ "Inconsistent type of derefered value. Current type: "++val2type v'++" origial type: " ++ val2type ot
     (VArr xs) ->
         evaluate $ (EVal (VArr (readRef xs)), env, ctx, tid, ptid) : ts
-    _ -> error "Trying to dereference a non-ref"
+    _ -> error $ "Trying to dereference a non-ref " ++ show e
 
 
-step ((v@(EVal (VRef nv ot)), env, ctx, tid, ptid) : ts) _ =
-  evaluate $ (EDeref v, env, ctx, tid, ptid) : ts
+-- step ((v@(EVal (VRef nv ot)), env, ctx, tid, ptid) : ts) _ =
+  -- evaluate $ (EDeref v, env, ctx, tid, ptid) : ts
 
 -- Function becomes a closure
 step ((EFun pars body, env, ctx, tid, ptid) : ts) _ = evaluate ((EVal $ VClosure pars body env, env, ctx, tid, ptid):ts)
@@ -217,15 +213,18 @@ step ((ECall (EVal (VClosure pars s cloEnv)) [] vs, env, ctx, tid, ptid) : ts) _
 step ((SSkip, _, ECall (HoleWithEnv env) _ _ : ctx, tid, ptid) : ts) _ = evaluate ((EVal VVoid, env, ctx, tid, ptid):ts)
   -- function body fully evaluated, evaluate VVoid
 
-step ((ECall (EVal (VPrimFun f)) [] vs, env, ctx, tid, ptid) : ts) _ = do
-  val <- (catch :: IO a -> (PatternMatchFail -> IO a) -> IO a) (evaluate (f (reverse vs))) (error $ "Invalid arguments for the primitive function " ++ show vs)
-  evaluate ((EVal val, env, ctx, tid, ptid):ts)
-step ((ECall (EVal (VPrimFunIO f)) [] vs, env, ctx, tid, ptid) : ts) _ = do
+step ((ECall (EVal (VPrimFun n f)) [] vs, env, ctx, tid, ptid) : ts) _ = do
+  val <- (try :: IO a -> IO (Either PatternMatchFail a)) (evaluate (f (reverse vs)))
+  case val of
+    Right v -> evaluate ((EVal v, env, ctx, tid, ptid):ts)
+    Left e -> (error $ "Invalid arguments for the primitive function " ++ n ++ ": "++ show vs++" types: "++ show (map val2type vs))
+
+step ((ECall (EVal (VPrimFunIO n f)) [] vs, env, ctx, tid, ptid) : ts) _ = do
   res  <- (try :: IO a -> IO (Either PatternMatchFail a)) $ f (reverse vs)
   case res of
     Right v ->
       evaluate ((EVal v, env, ctx, tid, ptid):ts)
-    Left e -> error $ "Invalid arguments for the primitive IO function " ++ show vs
+    Left e -> error $ "Invalid arguments for the primitive IO function '" ++ n ++ "' : "++ show vs
 step ((ECall f [] _, _, _, _, _) : ts) _ | isValue f = error $ "a call to non-function " ++ show f
 -- Reduce on function position
 step ((ECall f args [], env, ctx, tid, ptid) : ts) _ | notValue f = evaluate ((f, env, ECall Hole args [] : ctx, tid, ptid):ts)
@@ -277,19 +276,19 @@ step ((EVal v, env, EJoin Hole : ctx, tid, ptid) : ts) _ = error "Thread ids can
 
 step ((EReset f, env, ctx, tid, ptid) : ts) _ = evaluate $ (f, env, EReset Hole : ctx, tid, ptid) : ts --evaluate to closure
 step ((SSkip, env, EReset Hole : ctx, tid, ptid) : ts) _ = evaluate $ (EVal VVoid, env, ctx, tid, ptid) : ts --No shift found
-step ((v@(EVal (VClosure _ _ _)), env, EReset Hole : ctx, tid, ptid) : ts) _ =
+step ((v@(EVal VClosure{}), env, EReset Hole : ctx, tid, ptid) : ts) _ =
      evaluate $ (ECall v [] [], env, EReset Hole : ctx, tid, ptid) : ts
 
 step ((EShift f, env, ctx, tid, ptid) : ts) _  = do
   let nctx = takeWhile notReset ctx
   evaluate $ (f, env, EVal (VCont env nctx) : ctx, tid, ptid) : ts
-step ((v@(EVal (VClosure _ _ _)), env, EVal (VCont nenv nctx) : ctx, tid, ptid) : ts) _ = 
+step ((v@(EVal VClosure{}), env, EVal (VCont nenv nctx) : ctx, tid, ptid) : ts) _ = 
   evaluate $ (ECall v [] [], nenv, nctx, tid, ptid) : ts
 
 step ((SAssert msg e, env, ctx, tid, ptid):ts) _ = evaluate ((e, env, SAssert msg Hole : ctx, tid, ptid):ts)
-step (((EVal (VBool True)), env, (SAssert msg Hole):ctx, tid, ptid):ts) _ = evaluate ((SSkip, env, ctx, tid, ptid):ts)
-step (((EVal (VBool False)), env, (SAssert msg Hole):ctx, tid, ptid):ts) _ = error $ "Assertion failed: " ++ msg
-step ((val, env, (SAssert msg Hole):ctx, tid, ptid):ts) _ = error $ "Cannot assert a non-boolean: "++msg
+step ((EVal (VBool True), env, SAssert msg Hole : ctx, tid, ptid):ts) _ = evaluate ((SSkip, env, ctx, tid, ptid):ts)
+step ((EVal (VBool False), env, SAssert msg Hole : ctx, tid, ptid):ts) _ = error $ "Assertion failed: " ++ msg
+step ((val, env, SAssert msg Hole : ctx, tid, ptid):ts) _ = error $ "Cannot assert a non-boolean: "++msg
 
 -- If there are nothing more to parse ignore the evaluate value as it cannot be used anyway
 step ((val, env, [], tid, ptid):ts) _ | isValue val = evaluate ((SSkip, env, [], tid, ptid):ts)
@@ -323,3 +322,13 @@ printInfo env ctx =  "\n\nContext: " ++ show ctx ++"\n\nEnvironment: "  ++ showN
 
 readRef :: [Expr] -> [Expr]
 readRef = map (\a -> case a of {EVal (VRef nv _) -> EVal $ unsafePerformIO $ readIORef nv;_ -> a})
+
+arrVal2Arr :: String -> Value -> [Expr]
+arrVal2Arr s var =
+  case var of
+    (VRef nv ot) ->
+      case unsafePerformIO $ readIORef nv of 
+        VArr arr' -> arr'
+        _ -> error "uaa"
+    (VArr arr) -> arr
+    _ -> error $ "Trying to assign array but found non-array " ++ show s ++ " of type " ++ show (val2type var)

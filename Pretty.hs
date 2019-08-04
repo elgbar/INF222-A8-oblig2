@@ -62,6 +62,6 @@ instance Pretty Value where
   pp (VRef _ _)       = text "ref []" -- since not in IO, cannot show the content
   pp VVoid            = text "void"
   pp (VClosure s b e) = text "closure"
-  pp (VPrimFun _)     = text "primfun"
-  pp (VPrimFunIO _)   = text "primfun io"
+  pp (VPrimFun n _)   = text $ "primfun "++n
+  pp (VPrimFunIO n _) = text $ "primfun io "++n
   pp (VArr vals)      = text "[" <+> text (concatMap (\v -> pPrint v ++ ", ") vals) <+> text "]"
