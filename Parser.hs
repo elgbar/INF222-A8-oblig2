@@ -16,7 +16,7 @@ languageDef =
            , Token.commentLine     = "//"
            , Token.identStart      = letter
            , Token.identLetter     = alphaNum
-           , Token.reservedNames   = words "true false var if while fun ref return try catch reset shift spawn detach join import int bool string assert"
+           , Token.reservedNames   = words "true false var if while fun ref return try catch reset shift spawn detach join import int bool string assert const"
            , Token.reservedOpNames = words "+ - * / % == != < > <= >= && || ! ="
            }
 
