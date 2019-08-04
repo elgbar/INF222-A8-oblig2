@@ -2,3 +2,9 @@ int[] a = [ref 1];
 println("a[0] = ",*a[0]);
 a[0] = 2;
 println("a[0] = ",*a[0]);
+
+int[] b = ref [];
+b = add(*b, ref 1);
+println("b = ",*b);
+b[0] = 2;
+println("b = ",*b);
