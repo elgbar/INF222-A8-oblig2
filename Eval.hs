@@ -166,12 +166,17 @@ step ((v, env, SArrAssign s i Hole : ctx, tid, ptid) : ts) _ | isValue v = do
 -- Variable reference: get from environment
 step ((EVar s, env, ctx, tid, ptid) : ts) _ = 
   case findVar s env of 
-    -- v@(VRef nv ot) -> evaluate ((EDeref (EVal v), env, ctx, tid, ptid):ts)
     v -> evaluate ((EVal v, env, ctx, tid, ptid):ts)
 
-step ((EArrVar s i, env, ctx, tid, ptid) : ts) _ = do
-  let arr = arrVal2Arr s $ findVar s env
-  evaluate ((arr !! i, env, ctx, tid, ptid):ts)
+step ((EArrVar s i, env, ctx, tid, ptid) : ts) _ =  evaluate ((i, env, EArrVar s Hole:ctx, tid, ptid) : ts)
+step ((ev, env, EArrVar s Hole:ctx, tid, ptid) : ts) _ | isValue ev =
+  case expr2val ev of
+      (VInt i) -> 
+          case findVar s env of 
+            (VArr arr) -> evaluate ((arr !! i, env, ctx, tid, ptid):ts)
+            (VString arr) -> evaluate ((EVal $ VString [arr !! i], env, ctx, tid, ptid):ts)
+            v -> error $ "Expected to find an array or string but varible "++show s ++" is "++val2type v
+      e -> error $ "Array value lookup only accepts integer as keys. Got "++show e
 
 -- Box a value
 step ((ERef e, env, ctx, tid, ptid) : ts) _ = evaluate ((e, env, ERef Hole : ctx, tid, ptid):ts)
