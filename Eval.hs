@@ -176,7 +176,9 @@ step ((EArrVar s i, env, ctx, tid, ptid) : ts) _ = do
 -- Box a value
 step ((ERef e, env, ctx, tid, ptid) : ts) _ = evaluate ((e, env, ERef Hole : ctx, tid, ptid):ts)
 step ((v, env, ERef Hole : ctx, tid, ptid) : ts) _ | isValue v = do
-  let val = expr2val v
+  let val = case expr2val v of
+              VArr xs -> VArr (writeRefs xs)
+              v -> v
   nv <- newIORef val
   evaluate ((EVal (VRef nv val), env, ctx, tid, ptid):ts)
 
