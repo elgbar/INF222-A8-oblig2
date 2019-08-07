@@ -43,7 +43,9 @@ primitives =
         [VRef rh _] -> do -- allow for reference arrays to 
           (VArr xs) <- readIORef rh
           return $ VInt $ length xs
-        [VArr xs] -> return $ VInt $ length xs)
+        [VArr xs] -> return $ VInt $ length xs
+        [VString xs] -> return $ VInt $ length xs
+        )
   , ("add", VPrimFunIO "add"$ \args -> -- return a new array with the added element
       case args of 
         [VRef rh _, e] -> do
