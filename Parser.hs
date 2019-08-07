@@ -73,8 +73,8 @@ ifStmt = do
 
   el <- optionMaybe (reserved "else")
   s2 <- case el of
-    Nothing -> return $ SIf e s1 SSkip
     Just _ -> statement
+    Nothing -> return $ SSkip
   return $ SIf e s1 s2
 
 whileStmt = do
