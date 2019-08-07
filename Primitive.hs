@@ -82,10 +82,10 @@ primitives =
   --                   e -> error $ "Given string does not result in an value "++ show str++"\nbut rather "++show e
   --           Left e -> error ("Failed to parse given string "++ show str) >>= \r -> print e >> return r)
   --   )
-  , ("read", VPrimFun "read" $ \[VString s] ->
+  , ("fromString", VPrimFun "fromString" $ \[VString s] ->
                 case (readMaybe::String->Maybe Value) s of
                     Just e -> e
-                    Nothing -> error $ "Could only partially read given string "++show s
+                    Nothing -> VString s-- error $ "Could only partially read given string "++show s
     )
   , ("typeof", VPrimFun "typeof" $ \[e] -> VString $ val2type e)
   , ("readln", VPrimFunIO "readln" $ \[] -> getLine >>= \inp -> return $ VString inp)
