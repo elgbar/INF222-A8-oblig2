@@ -1,0 +1,8 @@
+import "std/string";
+
+assert isDigit("123");
+assert !isDigit("ff");
+
+assert takeWhile("123ff", isDigit) == "123";
+assert takeWhile("123", isDigit) == "123";
+assert takeWhile("ff123", isDigit) == "";

@@ -1,0 +1,26 @@
+fun takeWhile(str, cnd){
+    assert typeof(str) == typeof("");
+    string[] count = ref [];
+    var len = length(str);
+    for(int i = ref 0; *i < len; i = *i + 1;){
+        var e = str[*i];
+        if(cnd(e)){
+            count = add(count, e);
+        }else{
+            return toString(*count);
+        }
+    }
+    return toString(*count);
+}
+
+fun isDigit(str){
+    assert typeof(str) == typeof("");
+    var len = length(str);
+    for(int i = ref 0; *i < len; i = *i + 1;){
+        var c = fromString(str[*i]);
+        if(typeof(c) != typeof(0)){
+            return false;
+        }
+    }
+    return true;
+}
