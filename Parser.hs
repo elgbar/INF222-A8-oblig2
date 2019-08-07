@@ -115,13 +115,6 @@ deleteStmt = do
   i <- identifier
   return $ SDelete i
 
-namedFun = do
-  reserved "fun"
-  i <- identifier
-  pars <- parens (commaSep identifier)
-  body <- block
-  return $ SVarDecl i (EFun pars body)
-
 varDeclStmts =
   varDeclStmt "var" expr False <|> --factor already have reference with a factor
   varDeclStmt "bool" boolLiterals True <|> 
@@ -216,6 +209,16 @@ unaOp s = reservedOp s >> return (\ a -> ECall (EVar ("__u" ++ s)) [a] [])
 
 anyBinOp ops = foldl1 (<|>) (map binOp ops)
 anyUnaOp ops = foldl1 (<|>) (map unaOp ops)
+
+
+namedFun = do
+  mr <- optionMaybe $ reserved "ref"
+  reserved "fun"
+  i <- identifier
+  pars <- parens (commaSep identifier)
+  body <- block
+  let f = (EFun pars body)
+  return $ SVarDecl i $ if isJust mr then ERef f else f
 
 fun = do
   reserved "fun"
