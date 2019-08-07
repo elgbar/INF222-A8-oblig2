@@ -166,14 +166,14 @@ sameType _ _ = False
 
 val2type :: Value -> String
 val2type (VInt _)         = "integer"
-val2type (VArr _)         = "array"
+val2type (VArr xs)        = "array of "++ showQ (map (\e -> case e of {EVal v -> val2type v; _-> "complex expr"}) xs)
 val2type (VBool _)        = "boolean"
 val2type (VString _)      = "string"
 val2type (VRef _ v)       = "ref " ++ val2type v
 val2type VVoid            = "void"
 val2type (VClosure _ _ _) = "closure"
-val2type (VPrimFun _ _)     = "primfun"
-val2type (VPrimFunIO _ _)   = "primfun io"
+val2type (VPrimFun _ _)   = "primfun"
+val2type (VPrimFunIO _ _) = "primfun io"
 
 readRefs :: [Expr] -> [Expr]
 readRefs = map (\a -> case a of {EVal (VRef nv _) -> EVal $ unsafePerformIO $ readIORef nv;_ -> a})
@@ -199,7 +199,7 @@ writeRef :: Value -> Value -> String-> IO ()
 writeRef (VRef nv ot) val _ = do
           if sameType val ot then writeIORef nv val >> return ()
           else error $ "Cannot assign "++val2type val ++ " to "++val2type ot
-writeRef _ val s = error $ "Trying to assign "++val2type val++" "++show val++" to a non-ref " ++ show s
+writeRef _ val s = error $ "Trying to assign "++ show (val2type val)++" "++show val++" to a non-ref " ++ show s
 
 arrEql :: [Expr] -> [Expr] -> IO Bool
 arrEql xs ys =
@@ -228,3 +228,6 @@ pmfTry = try
 
 ecTry :: IO a -> IO (Either ErrorCall a)
 ecTry = try
+
+showQ :: Show a => [a] -> String
+showQ xs = [x | x <- show xs, x /= '\"']
