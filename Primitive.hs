@@ -2,9 +2,12 @@ module Primitive where
 
 import Control.Monad
 import Syntax
+import Parser
 import Data.IORef
 import System.IO
 import Data.Maybe
+import Text.Read
+import Control.Exception
 
 primitives :: Env
 primitives =
@@ -70,7 +73,18 @@ primitives =
               f [val]
             [VArr xs] -> return $ VString $ concatMap (\ev -> case ev of{EVal v -> show v;_ -> show ev}) (readRefs xs)
             [v] -> return $ VString $ show v)
-            
+  -- , ("parse", VPrimFunIO "parse" (\[VString str] -> 
+  --         case parse oVals "<parse>" str of
+  --           Right e -> case e of
+  --                   EVal v -> return v
+  --                   e -> error $ "Given string does not result in an value "++ show str++"\nbut rather "++show e
+  --           Left e -> error ("Failed to parse given string "++ show str) >>= \r -> print e >> return r)
+  --   )
+  , ("read", VPrimFun "read" $ \[VString s] ->
+                case (readMaybe::String->Maybe Value) s of
+                    Just e -> e
+                    Nothing -> error $ "Could only partially read given string "++show s
+    )
   , ("readln", VPrimFunIO "readln" $ \[] -> getLine >>= \inp -> return $ VString inp)
   , ("print", VPrimFunIO "print" $ \args -> mapM_ (putStr . show) args >> hFlush stdout >> return VVoid)
   , ("println" , VPrimFunIO "println" $ \args -> mapM_ (putStr . show) args >> putStrLn "" >> return VVoid)

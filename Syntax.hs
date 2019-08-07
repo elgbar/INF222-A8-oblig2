@@ -3,6 +3,7 @@ module Syntax where
 import Data.IORef
 import System.IO.Unsafe
 import Control.Exception
+import Data.Char (isDigit)
 
 data Ast
   = SSkip
@@ -120,6 +121,18 @@ instance Eq Value where
   (==) (VString i) (VString i') = i == i'
   (==) (VArr xs) (VArr ys) = unsafePerformIO $ arrEql xs ys
   (==) v1 v2 = error $ "No way to compare "++val2type v1 ++" to "++val2type v2
+
+instance Read Value where
+  readsPrec _ ('v':'o':'i':'d':inp) = return (VVoid,inp)
+  readsPrec _ ('t':'r':'u':'e':inp) = return (VBool True,inp)
+  readsPrec _ ('f':'a':'l':'s':'e':inp) = return (VBool False,inp)
+  readsPrec _ inp = let neg = head inp == '-' -- a very shitty way of checking if this is negative
+                        ds = takeWhile isDigit (if neg then tail inp else inp)
+                        ds' = if neg then '-':ds else ds
+                        inp' = drop (length ds') inp
+                        d = (read::String->Int) ds'
+                    in if length ds > 0 then return (VInt d, inp')
+                       else error $ "Cannot read: "++inp
 
 showNoPrim :: Env -> String
 showNoPrim env = show $ filter (\(_, p) -> case p of 
