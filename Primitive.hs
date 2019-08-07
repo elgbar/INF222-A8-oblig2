@@ -85,6 +85,7 @@ primitives =
                     Just e -> e
                     Nothing -> error $ "Could only partially read given string "++show s
     )
+  , ("typeof", VPrimFun "typeof" $ \[e] -> VString $ val2type e)
   , ("readln", VPrimFunIO "readln" $ \[] -> getLine >>= \inp -> return $ VString inp)
   , ("print", VPrimFunIO "print" $ \args -> mapM_ (putStr . show) args >> hFlush stdout >> return VVoid)
   , ("println" , VPrimFunIO "println" $ \args -> mapM_ (putStr . show) args >> putStrLn "" >> return VVoid)
