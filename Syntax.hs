@@ -27,7 +27,7 @@ data Ast
 
   | EVal Value
   | EVar String
-  | EArrVar String Int
+  | EArrVar String Expr
   | EFun [String] Stmt
   | ECall Expr [Expr] [Value]
   | ERef Expr
@@ -132,7 +132,7 @@ instance Read Value where
                         inp' = drop (length ds') inp
                         d = (read::String->Int) ds'
                     in if length ds > 0 then return (VInt d, inp')
-                       else error $ "Cannot read: "++inp
+                       else return $ (VString inp, "")
 
 showNoPrim :: Env -> String
 showNoPrim env = show $ filter (\(_, p) -> case p of 

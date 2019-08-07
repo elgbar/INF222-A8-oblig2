@@ -157,7 +157,7 @@ step ((v, env, SAssign s Hole : ctx, tid, ptid) : ts) _ | isValue v = do
 step ((SArrAssign s i e, env, ctx, tid, ptid) : ts) _ = evaluate ((e, env, SArrAssign s i Hole : ctx, tid, ptid):ts)
 step ((v, env, SArrAssign s i Hole : ctx, tid, ptid) : ts) _ | isValue v = do
   let var = findVar s env
-  let arr = arrVal2Arr s var
+  arr <- arrVal2Arr s var
   let elem = expr2val $ arr !! i -- old element 
   let val = expr2val v -- new element
   writeRef elem val s
@@ -169,10 +169,13 @@ step ((EVar s, env, ctx, tid, ptid) : ts) _ =
     v -> evaluate ((EVal v, env, ctx, tid, ptid):ts)
 
 step ((EArrVar s i, env, ctx, tid, ptid) : ts) _ =  evaluate ((i, env, EArrVar s Hole:ctx, tid, ptid) : ts)
-step ((ev, env, EArrVar s Hole:ctx, tid, ptid) : ts) _ | isValue ev =
+step ((ev, env, EArrVar s Hole : ctx, tid, ptid) : ts) _ | isValue ev =
   case expr2val ev of
       (VInt i) -> 
-          case findVar s env of 
+          case findVar s env of
+            a@(VRef _ (VArr _)) -> do
+              arr <- arrVal2Arr s a
+              evaluate ((arr !! i, env, ctx, tid, ptid):ts)
             (VArr arr) -> evaluate ((arr !! i, env, ctx, tid, ptid):ts)
             (VString arr) -> evaluate ((EVal $ VString [arr !! i], env, ctx, tid, ptid):ts)
             v -> error $ "Expected to find an array or string but varible "++show s ++" is "++val2type v
@@ -313,12 +316,13 @@ firstTry _ = Nothing
 printInfo :: Env -> [Ctx] -> String
 printInfo env ctx =  "\n\nContext: " ++ show ctx ++"\n\nEnvironment: "  ++ showNoPrim env
 
-arrVal2Arr :: String -> Value -> [Expr]
+arrVal2Arr :: String -> Value -> IO [Expr]
 arrVal2Arr s var =
   case var of
-    (VRef nv ot) ->
-      case unsafePerformIO $ readIORef nv of 
-        VArr arr' -> arr'
+    (VRef nv ot) -> do
+      val <- readIORef nv
+      case val  of 
+        VArr arr -> return arr
         _ -> error "uaa"
-    (VArr arr) -> arr
+    (VArr arr) -> return arr
     _ -> error $ "Trying to assign array but found non-array " ++ show s ++ " of type " ++ show (val2type var)

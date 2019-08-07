@@ -225,9 +225,9 @@ fun = do
 
 variable = do
   i <- identifier
-  arr <- optionMaybe $ squares integer
+  arr <- optionMaybe $ squares (intLiteral <|> atomic)
   case arr of 
-    Just offset -> return $ EArrVar i (fromIntegral offset)
+    Just offset -> return $ EArrVar i offset
     Nothing -> return $ EVar i
 
 resetExpr = do
