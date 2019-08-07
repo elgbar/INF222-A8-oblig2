@@ -145,6 +145,8 @@ step ((SSkip, env, SVarDeclRef s todo done : ctx, tid, ptid) : ts) _ =
 step ((val, env, SVarDeclRef s todo done : ctx, tid, ptid) : ts) _ | isValue val= 
   evaluate $ (SSkip, env, SVarDeclRef s todo (done ++ [val]) : ctx, tid, ptid) : ts
 
+-- Delete a variable
+step ((SDelete s, env, ctx, tid, ptid) : ts) _ = evaluate ((SSkip, remVar s env, ctx, tid, ptid):ts)
 
 -- Assignment
 step ((SAssign s e, env, ctx, tid, ptid) : ts) _ = evaluate ((e, env, SAssign s Hole : ctx, tid, ptid):ts)

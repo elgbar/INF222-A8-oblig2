@@ -16,7 +16,7 @@ languageDef =
            , Token.commentLine     = "//"
            , Token.identStart      = letter
            , Token.identLetter     = alphaNum
-           , Token.reservedNames   = words "true false var if while fun ref return try catch reset shift spawn detach join import int bool string assert const"
+           , Token.reservedNames   = words "true false var if while fun ref return try catch reset shift spawn detach join import int bool string assert const void delete"
            , Token.reservedOpNames = words "+ - * / % == != < > <= >= && || ! ="
            }
 
@@ -62,6 +62,7 @@ statement =
   varDeclStmts <|>
   assignArrStmt <|>
   assignStmt <|>
+  deleteStmt <|>
   exprStmt
 
 empty = semi >> return SSkip
@@ -108,6 +109,11 @@ assignStmt = do
   e <- expr
   semi
   return $ SAssign i e
+
+deleteStmt = do
+  reserved "delete"
+  i <- identifier
+  return $ SDelete i
 
 namedFun = do
   reserved "fun"
@@ -189,7 +195,9 @@ term = neg `chainl1` anyBinOp (words "* / %")
 neg = (anyUnaOp (words "! -") >>= \o -> factor >>= \r -> return $ o r) <|> factor
 
 factor = literal <|> fun <|> atomicOrCall <|> ref
-literal = intLiteral <|> boolLiterals <|> stringLiteral
+literal = intLiteral <|> boolLiterals <|> stringLiteral <|> voidLiteral
+
+voidLiteral = reserved "void" >> (return $ EVal VVoid)
 
 intLiteral = integer >>= \i -> return $ EVal (VInt (fromInteger i))
 
