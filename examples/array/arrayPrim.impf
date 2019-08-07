@@ -1,0 +1,31 @@
+var cr = create(3);
+var[] crt = [ref void, ref void, ref void];
+var[] crtWrongLength = [ref void];
+var[] crtWrongTyp = [ref void, ref 2];
+var[] crtWrongTyp2 = [void];
+
+assert cr == crt;
+assert cr != crtWrongLength;
+assert cr != crtWrongTyp;
+assert cr != crtWrongTyp2;
+
+var[] cr2 = ref [ref void, ref void, ref void];
+assert length(cr2) == 3;
+cr2 = add(cr2, "test");
+assert length(cr2) == 4;
+assert cr2[3] == "test";
+
+cr2 = insert(cr2, "inserted",0);
+assert length(cr2) == 5;
+assert cr2[0] == "inserted";
+
+cr2 = insert(cr2, "inserted2",100000);
+assert length(cr2) == 6;
+assert cr2[5] == "inserted2";
+
+// cr2 = insert(cr2, "inserted2",1);
+var[] crtest = ref ["inserted",ref void, ref void, ref void,"test","inserted2"];
+println(*cr2);
+println(*cr2[1]);
+println(*crtest);
+assert *cr2 == *crtest;

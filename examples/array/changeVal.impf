@@ -4,7 +4,9 @@ a[0] = 2;
 println("a[0] = ",*a[0]);
 
 int[] b = ref [];
-b = add(*b, ref 1);
-println("b = ",*b);
+b = add(b, ref 1);
+b = add(b, ref true);
+println("b = ",toString(b));
 b[0] = 2;
-println("b = ",*b);
+b[1] = false;
+println("b = ",toString(b));
