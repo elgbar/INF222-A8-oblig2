@@ -12,7 +12,10 @@ primitives =
   , ("__u!", VPrimFun "!" $ \[VBool x] -> VBool $ not x)
   , ("__u++", VPrimFun "++" $ \[VInt x] -> VInt $ x + 1)
   , ("__u--", VPrimFun "--" $ \[VInt x] -> VInt $ x - 1)
-  , ("__b+", VPrimFun "+" $ \[VInt x, VInt y] -> VInt $ x + y)
+  , ("__b+", VPrimFun "+" $ \args ->
+          case args of 
+            [VInt x, VInt y] -> VInt $ x + y
+            [VString x, VString y] -> VString $ x ++ y)
   , ("__b-", VPrimFun "-" $ \[VInt x, VInt y] -> VInt $ x - y)
   , ("__b*", VPrimFun "*" $ \[VInt x, VInt y] -> VInt $ x * y)
   , ("__b/", VPrimFun "/" $ \[VInt x, VInt y] -> VInt $ x `div` y)
