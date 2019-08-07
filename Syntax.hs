@@ -1,6 +1,8 @@
 module Syntax where
 
 import Data.IORef
+import System.IO.Unsafe
+import Control.Exception
 
 data Ast
   = SSkip
@@ -9,6 +11,7 @@ data Ast
   | SBlock Stmt
   | SSeq Stmt Stmt
   | SAssign String Expr
+  | SDelete String
   | SArrAssign String Int Expr
   | SVarDecl String Expr
   | SVarDeclRef String [Expr] [Expr] -- todo -> done
@@ -95,10 +98,6 @@ isValue (EVal _) = True
 isValue _        = False
 notValue = not . isValue
 
-expr2val :: Expr -> Value
-expr2val (EVal v) = v
-expr2val e = error $ "Expression is not a value: " ++ show e
-
 type Env = [(String, Value)]
 
 instance Show Value where
@@ -112,10 +111,15 @@ instance Show Value where
     show ss ++ ", stmt=" ++ show s ++ ", env=" ++ showNoPrim e ++ "}"
   show (VPrimFun n _) = "prim-fun "++n
   show (VPrimFunIO n _) = "prim-fun io "++n
-  show (VArr vals) = concatMap (\ev -> case ev of
-                                          EVal v -> show v
-                                          _ -> show ev
-                                ) vals
+  show (VArr xs) = show $ map (\x -> case x of {EVal v -> v; _ -> VString $ show x}) xs
+
+instance Eq Value where
+  (==) VVoid VVoid = True
+  (==) (VInt i) (VInt i') = i == i'
+  (==) (VBool i) (VBool i') = i == i'
+  (==) (VString i) (VString i') = i == i'
+  (==) (VArr xs) (VArr ys) = unsafePerformIO $ arrEql xs ys
+  (==) v1 v2 = error $ "No way to compare "++val2type v1 ++" to "++val2type v2
 
 showNoPrim :: Env -> String
 showNoPrim env = show $ filter (\(_, p) -> case p of 
@@ -157,3 +161,57 @@ val2type VVoid            = "void"
 val2type (VClosure _ _ _) = "closure"
 val2type (VPrimFun _ _)     = "primfun"
 val2type (VPrimFunIO _ _)   = "primfun io"
+
+readRefs :: [Expr] -> [Expr]
+readRefs = map (\a -> case a of {EVal (VRef nv _) -> EVal $ unsafePerformIO $ readIORef nv;_ -> a})
+
+readRef :: Value -> IO (Maybe Value)
+readRef (VRef nv ot) = do
+          v' <- readIORef nv
+          if sameType v' ot then return $ Just $ v'
+          else error $ "Inconsistent type of derefered value. Current type: "++val2type v'++" origial type: " ++ val2type ot
+readRef _ = return Nothing
+
+
+writeRefs :: [Expr] -> [Expr]
+writeRefs = map (\x-> unsafePerformIO $ newRef x)
+
+newRef :: Expr -> IO Expr
+newRef (ERef (EVal v)) = do
+  vr <- newIORef v
+  return $ EVal $ VRef vr v
+newRef v = return v
+
+writeRef :: Value -> Value -> String-> IO ()
+writeRef (VRef nv ot) val _ = do
+          if sameType val ot then writeIORef nv val >> return ()
+          else error $ "Cannot assign "++val2type val ++ " to "++val2type ot
+writeRef _ val s = error $ "Trying to assign "++val2type val++" "++show val++" to a non-ref " ++ show s
+
+arrEql :: [Expr] -> [Expr] -> IO Bool
+arrEql xs ys =
+  if (length xs /= length ys) then (return False) else do
+    ziped <- arrExpr2arrVal xs ys
+    return $ all (\(x,y) ->  (x == y)) ziped
+
+arrExpr2arrVal :: [Expr] -> [Expr] -> IO [(Value, Value)]
+arrExpr2arrVal xs ys = do
+  resx <- ecTry $ evaluate $ map expr2val xs
+  resy <- ecTry $ evaluate $ map expr2val ys
+  case resx of
+    Right xs' -> case resy of
+      Right ys' -> return $ zip xs' ys'
+      Left e -> error $ "Can only compare arrays where all elements is values"
+    Left e -> error $ "Can only compare arrays where all elements is values"
+
+
+    
+expr2val :: Expr -> Value
+expr2val (EVal v) = v
+expr2val e = error $ "Expression is not a value: " ++ show e
+
+pmfTry :: IO a -> IO (Either PatternMatchFail a)
+pmfTry = try
+
+ecTry :: IO a -> IO (Either ErrorCall a)
+ecTry = try

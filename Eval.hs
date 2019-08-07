@@ -44,7 +44,7 @@ runInterp env verbose dbg code = do
   putStr "> "
   hFlush stdout -- force flushing of std out
   line <- getLine
-  ran <- (try :: IO a -> IO (Either ErrorCall a)) $ run line "<console>" env verbose dbg code 
+  ran <- ecTry $ run line "<console>" env verbose dbg code 
   env' <- case ran of
     Right env' -> return env'
     Left err -> print err >> return env
@@ -149,12 +149,8 @@ step ((val, env, SVarDeclRef s todo done : ctx, tid, ptid) : ts) _ | isValue val
 -- Assignment
 step ((SAssign s e, env, ctx, tid, ptid) : ts) _ = evaluate ((e, env, SAssign s Hole : ctx, tid, ptid):ts)
 step ((v, env, SAssign s Hole : ctx, tid, ptid) : ts) _ | isValue v = do
-  let val = expr2val v
-  case findVar s env of
-    (VRef nv ot) -> --assigning a value to a ref
-      if sameType val ot then writeIORef nv val >> evaluate ((SSkip, env, ctx, tid, ptid):ts)
-      else error $ "Cannot assign "++val2type val ++ " to "++val2type ot
-    _ -> error $ "Trying to assign "++val2type val++" "++show val++" to a non-ref " ++ show s
+  writeRef (findVar s env) (expr2val v) s
+  evaluate ((SSkip, env, ctx, tid, ptid):ts)
 
 step ((SArrAssign s i e, env, ctx, tid, ptid) : ts) _ = evaluate ((e, env, SArrAssign s i Hole : ctx, tid, ptid):ts)
 step ((v, env, SArrAssign s i Hole : ctx, tid, ptid) : ts) _ | isValue v = do
@@ -162,11 +158,8 @@ step ((v, env, SArrAssign s i Hole : ctx, tid, ptid) : ts) _ | isValue v = do
   let arr = arrVal2Arr s var
   let elem = expr2val $ arr !! i -- old element 
   let val = expr2val v -- new element
-  case elem of
-    (VRef nv ot) -> -- copy of step((ERef ...
-      if sameType val ot then writeIORef nv val >> evaluate ((SSkip, env, ctx, tid, ptid):ts)
-      else error $ "Cannot assign " ++ val2type val ++ " to " ++val2type ot
-    _ -> error $ "Trying to assign to a non-ref \"" ++ s ++ "\""
+  writeRef elem val s
+  evaluate ((SSkip, env, ctx, tid, ptid):ts)
 
 -- Variable reference: get from environment
 step ((EVar s, env, ctx, tid, ptid) : ts) _ = 
@@ -187,23 +180,12 @@ step ((v, env, ERef Hole : ctx, tid, ptid) : ts) _ | isValue v = do
 
 -- Dereference a ref
 step ((EDeref e, env, ctx, tid, ptid) : ts) _ = evaluate ((e, env, EDeref Hole : ctx, tid, ptid):ts)
-step ((v, env, EDeref Hole : ctx, tid, ptid) : ts) _ | isValue v = do
-  let e = expr2val v
-  case e of 
-    (VRef nv ot) -> do
-        v' <- readIORef nv
-        if sameType v' ot then
-          case v' of
-            VArr arr -> evaluate ((EDeref (EVal v'), env, ctx, tid, ptid):ts)
-            _ -> evaluate ((EVal v', env, ctx, tid, ptid):ts)
-        else error $ "Inconsistent type of derefered value. Current type: "++val2type v'++" origial type: " ++ val2type ot
-    (VArr xs) ->
-        evaluate $ (EVal (VArr (readRef xs)), env, ctx, tid, ptid) : ts
-    _ -> error $ "Trying to dereference a non-ref " ++ show e
-
-
--- step ((v@(EVal (VRef nv ot)), env, ctx, tid, ptid) : ts) _ =
-  -- evaluate $ (EDeref v, env, ctx, tid, ptid) : ts
+step ((e, env, EDeref Hole : ctx, tid, ptid) : ts) _ | isValue e = do
+  let val = expr2val e
+  rval <- readRef val
+  case rval of
+    Just v -> evaluate $ (EVal v, env, ctx, tid, ptid):ts
+    Nothing -> error $ "Trying to dereference a non-ref " ++ show val
 
 -- Function becomes a closure
 step ((EFun pars body, env, ctx, tid, ptid) : ts) _ = evaluate ((EVal $ VClosure pars body env, env, ctx, tid, ptid):ts)
@@ -214,17 +196,19 @@ step ((SSkip, _, ECall (HoleWithEnv env) _ _ : ctx, tid, ptid) : ts) _ = evaluat
   -- function body fully evaluated, evaluate VVoid
 
 step ((ECall (EVal (VPrimFun n f)) [] vs, env, ctx, tid, ptid) : ts) _ = do
-  val <- (try :: IO a -> IO (Either PatternMatchFail a)) (evaluate (f (reverse vs)))
+  let rvs = reverse vs
+  val <- pmfTry $ evaluate (f rvs)
   case val of
     Right v -> evaluate ((EVal v, env, ctx, tid, ptid):ts)
-    Left e -> (error $ "Invalid arguments for the primitive function " ++ n ++ ": "++ show vs++" types: "++ show (map val2type vs))
+    Left e -> error $ "Invalid arguments for the primitive function " ++ show n ++ " "++ show rvs++" types: "++ show (map val2type rvs)
 
 step ((ECall (EVal (VPrimFunIO n f)) [] vs, env, ctx, tid, ptid) : ts) _ = do
-  res  <- (try :: IO a -> IO (Either PatternMatchFail a)) $ f (reverse vs)
-  case res of
-    Right v ->
-      evaluate ((EVal v, env, ctx, tid, ptid):ts)
-    Left e -> error $ "Invalid arguments for the primitive IO function '" ++ n ++ "' : "++ show vs
+  let rvs = reverse vs
+  val  <- pmfTry $ f rvs
+  case val of
+    Right v -> evaluate ((EVal v, env, ctx, tid, ptid):ts)
+    Left e -> error $ "Invalid arguments for the primitive IO function " ++ show n ++ " "++ show rvs++" types: "++ show (map val2type rvs)
+
 step ((ECall f [] _, _, _, _, _) : ts) _ | isValue f = error $ "a call to non-function " ++ show f
 -- Reduce on function position
 step ((ECall f args [], env, ctx, tid, ptid) : ts) _ | notValue f = evaluate ((f, env, ECall Hole args [] : ctx, tid, ptid):ts)
@@ -319,9 +303,6 @@ firstTry _ = Nothing
 
 printInfo :: Env -> [Ctx] -> String
 printInfo env ctx =  "\n\nContext: " ++ show ctx ++"\n\nEnvironment: "  ++ showNoPrim env
-
-readRef :: [Expr] -> [Expr]
-readRef = map (\a -> case a of {EVal (VRef nv _) -> EVal $ unsafePerformIO $ readIORef nv;_ -> a})
 
 arrVal2Arr :: String -> Value -> [Expr]
 arrVal2Arr s var =

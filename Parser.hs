@@ -22,20 +22,20 @@ languageDef =
 
 lexer = Token.makeTokenParser languageDef
 
-identifier = Token.identifier lexer -- parses an identifier
-reserved   = Token.reserved   lexer -- parses a reserved name
-reservedOp = Token.reservedOp lexer -- parses an operator
-parens     = Token.parens     lexer -- parses surrounding parenthesis
-braces     = Token.braces     lexer -- parses surrounding braces
-squares    = Token.brackets   lexer -- parses surrounding square brackets
-integer    = Token.integer    lexer -- parses an integer
-natural    = Token.natural    lexer -- parses a natural number
-semi       = Token.semi       lexer -- parses a semicolon
-symbol     = Token.symbol     lexer -- parses one of the ops
-whiteSpace = Token.whiteSpace lexer -- parses whitespace
-commaSep   = Token.commaSep   lexer -- parses a comma separated list
-semiSep1   = Token.semiSep1   lexer -- parses a semi separated list
-stringlit = Token.stringLiteral lexer
+identifier = Token.identifier    lexer -- parses an identifier
+reserved   = Token.reserved      lexer -- parses a reserved name
+reservedOp = Token.reservedOp    lexer -- parses an operator
+parens     = Token.parens        lexer -- parses surrounding parenthesis
+braces     = Token.braces        lexer -- parses surrounding braces
+squares    = Token.brackets      lexer -- parses surrounding square brackets
+integer    = Token.integer       lexer -- parses an integer
+natural    = Token.natural       lexer -- parses a natural number
+semi       = Token.semi          lexer -- parses a semicolon
+symbol     = Token.symbol        lexer -- parses one of the ops
+whiteSpace = Token.whiteSpace    lexer -- parses whitespace
+commaSep   = Token.commaSep      lexer -- parses a comma separated list
+semiSep1   = Token.semiSep1      lexer -- parses a semi separated list
+stringlit  = Token.stringLiteral lexer -- parses a double quoted string 
 top = parse program
 
 program = do
