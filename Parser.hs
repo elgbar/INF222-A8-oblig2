@@ -126,7 +126,7 @@ varDeclStmts =
 varDeclStmt typ par ref = do
   reserved typ
   maybeArr <- optionMaybe $ symbol "[" >> symbol "]"
-  let arr = case maybeArr of { Just _ -> True; Nothing -> False}
+  let arr = isJust maybeArr
   i <- identifier
   reservedOp "="
   if arr then do
@@ -164,7 +164,7 @@ importStmt = do
   reserved "import"
   fn <- stringlit
   semi
-  return $ SImport $ fn++".impf"
+  return $ SImport $ (removeSub ".impf" fn) ++ ".impf"
 
 exprStmt = do
   e <- expr
