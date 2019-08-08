@@ -1,9 +1,11 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Syntax where
 
 import Data.IORef
 import System.IO.Unsafe
 import Control.Exception
 import Data.Char (isDigit)
+import Data.Text(pack, unpack, replace)
 
 data Ast
   = SSkip
@@ -231,3 +233,6 @@ ecTry = try
 
 showQ :: Show a => [a] -> String
 showQ xs = [x | x <- show xs, x /= '\"']
+
+removeSub :: String -> String -> String
+removeSub sub = unpack . replace (pack sub) "" . pack

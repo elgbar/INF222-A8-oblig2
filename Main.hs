@@ -18,13 +18,10 @@ main = do
   let cleanedArgs = filter (\e -> e `notElem` ["-v", "-d", "-c", "-i"]) args
   if interpreter then do
     putStrLn "Language started in interactive mode"
-    runInterp [] verbose debug code
+    runInterp cleanedArgs [] verbose debug code
   else do
-    let fname =
-          if null cleanedArgs
-            then error "no filename"
-            else head cleanedArgs
-    input <- readFile fname
+    let fname = if null cleanedArgs then error "no filename" else head cleanedArgs
+    input <- readFile fname 
     run input fname [] verbose debug code
   return ()
 

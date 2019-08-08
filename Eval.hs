@@ -39,16 +39,23 @@ run input fname env verbose dbg code =
       print e
       return env
 
-runInterp :: Env -> Bool -> Bool -> Bool -> IO Env
-runInterp env verbose dbg code = do
-  putStr "> "
-  hFlush stdout -- force flushing of std out
-  line <- getLine
+runInterp :: [String] ->Env -> Bool -> Bool -> Bool -> IO Env
+runInterp fnames env verbose dbg code = do
+  line <- if null fnames then do
+            putStr "> "
+            hFlush stdout -- force flushing of std out
+            l <-getLine
+            return l 
+          else do
+            sequence_ [putStrLn $ "Loading " ++ show (removeSub ".impf" fname) | fname <- fnames]
+            return $ concatMap (\fname -> 
+                          let importName = removeSub ".impf" fname
+                          in "import "++show importName++";") fnames
   ran <- ecTry $ run line "<console>" env verbose dbg code 
   env' <- case ran of
     Right env' -> return env'
     Left err -> print err >> return env
-  runInterp env' verbose dbg code
+  runInterp [] env' verbose dbg code
 
 type Thread = (Ast, Env, [Ctx], Int, Int)
 
