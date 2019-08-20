@@ -24,6 +24,11 @@ addVars ss vs env = zip ss vs ++ env
 findVar :: String -> Env -> Value
 findVar s env = fromMaybe (error $ "failed to find var '" ++ s ++ "' in env " ++ valName env) (lookup s env)
 
+varExists :: String -> Env -> Bool
+varExists s env = case lookup s env of
+    Just _ -> True
+    Nothing -> False
+
 remVar :: String -> Env -> Env
 remVar s = filter $ \(n,_) -> n /= s
 
@@ -110,8 +115,17 @@ stepN threads dbg n = do
         0 -> evaluate $ ts ++ [t] -- Move the running thread to the back of the queue
         n -> stepN trds dbg (n-1)
 
+notThrowing :: [Expr] -> Env -> Bool
+notThrowing ((SThrow _):_) _ = False
+notThrowing _ env = not $ varExists "__ex" env
+
+
+
 step :: [Thread] -> Bool -> IO [Thread]
 step ((ast, e, c, tid, ptid) : ts) True | trace ("Evaluating (tid "++show tid++", pid "++show ptid++")\nast: "++ show ast ++ "\n\nctx: " ++ show c ++"\n\nenv: "++ showNoPrim e ++"\n\n\n") False = undefined
+
+step((e@(EVal (VException _)), env, ctx, tid, ptid) : ts) _ | notThrowing ctx env = 
+  evaluate ((e, env, (SThrow Hole) : ctx, tid, ptid):ts)
 
 -- Statement expression: evaluate expression and turn into SSkip
 step ((SExpr e, env, ctx, tid, ptid) : ts) _ = evaluate ((e, env, SExpr Hole : ctx, tid, ptid):ts)
@@ -303,7 +317,7 @@ escapeHole :: Env -> [Ctx] -> (Ctx -> Maybe a) -> (a, [Ctx])
 escapeHole env ctx f = do
                 let octx = dropWhile (isNothing . f) ctx
                 let ret = case octx of
-                      [] -> error "No context left"
+                      [] -> error $ "No context left. Old ctx "++ show ctx 
                       (oc:_) -> fromMaybe (error "Failed to escape hole") (f oc)
                 (ret, tail octx)
 

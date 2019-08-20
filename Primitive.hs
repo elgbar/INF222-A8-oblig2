@@ -13,7 +13,11 @@ primitives :: Env
 primitives =
   [ ("__u-", VPrimFun "-" $ \[VInt x] -> VInt $ -x)
   , ("__u!", VPrimFun "!" $ \[VBool x] -> VBool $ not x)
-  , ("__u++", VPrimFun "++" $ \[VInt x] -> VInt $ x + 1)
+  , ("__up++", VPrimFunIO "++" $ \[r@(VRef ref (VInt _))] -> do
+                (VInt i) <-readIORef ref
+                writeIORef ref $ VInt $ i+1
+                return r
+    )
   , ("__u--", VPrimFun "--" $ \[VInt x] -> VInt $ x - 1)
   , ("__b+", VPrimFun "+" $ \args ->
           case args of 
@@ -59,8 +63,11 @@ primitives =
           return $ VArr $ a ++ (EVal e : b))                  
   , ("remove", VPrimFunIO "remove"$ \args ->
             case args of 
-              [VRef rh _, VInt index] -> do
-                VArr xs <- readIORef rh
+              [VRef rh (VArr _), VInt index] -> do
+                read <- readIORef rh
+                let xs = case read of 
+                            VArr ys -> ys
+                            _ -> error $ "can only remove elements from arrays"
                 if index <= 0 then return $ VArr $ if null xs then [] else tail xs
                 else do
                   let (a,b) = splitAt (index+1) xs
@@ -68,7 +75,7 @@ primitives =
   , ("create", VPrimFun "create" $ \[VInt size] -> VArr $ replicate size $ ERef $ EVal VVoid) -- create an array with the given size and void as elemt
   , ("toString", 
       VPrimFunIO "toString" $ \args -> -- print out arrays as a string (no spaces between elements)
-        case args of 
+        case args of
             [VRef rh _] -> do
               val <- readIORef rh
               let (VPrimFunIO _ f) = fromJust (lookup "toString" primitives)
@@ -85,7 +92,7 @@ primitives =
   , ("fromString", VPrimFun "fromString" $ \[VString s] ->
                 case (readMaybe::String->Maybe Value) s of
                     Just e -> e
-                    Nothing -> VString s-- error $ "Could only partially read given string "++show s
+                    Nothing -> VException "Failed to convert the string to a value"
     )
   , ("typeof", VPrimFun "typeof" $ \[e] -> VString $ val2type e)
   , ("readln", VPrimFunIO "readln" $ \[] -> getLine >>= \inp -> return $ VString inp)

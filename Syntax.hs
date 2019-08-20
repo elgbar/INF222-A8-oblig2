@@ -60,6 +60,7 @@ data Value
   | VPrimFunIO String ([Value] -> IO Value)
   | VCont Env [Ctx]
   | VArr [Expr]
+  | VException String 
 
 instance Show Ast where
   show SSkip = "SSkip"
@@ -107,6 +108,7 @@ instance Show Value where
   show (VInt i) = show i
   show (VBool b) = show b
   show (VString s) = s
+  show (VException s) = "Exception: "++s
   show (VRef _ t) = "ref "++val2type t
   show VVoid = "void"
   show (VClosure ss s e) =
@@ -122,19 +124,25 @@ instance Eq Value where
   (==) (VBool i) (VBool i') = i == i'
   (==) (VString i) (VString i') = i == i'
   (==) (VArr xs) (VArr ys) = unsafePerformIO $ arrEql xs ys
+  (==) (VException xs) (VException ys) = xs == ys
   (==) v1 v2 = error $ "No way to compare "++val2type v1 ++" to "++val2type v2
 
 instance Read Value where
-  readsPrec _ ('v':'o':'i':'d':inp) = return (VVoid,inp)
-  readsPrec _ ('t':'r':'u':'e':inp) = return (VBool True,inp)
-  readsPrec _ ('f':'a':'l':'s':'e':inp) = return (VBool False,inp)
+  readsPrec _ ('v':'o':'i':'d':[]) = return (VVoid,[])
+  readsPrec _ ('v':'o':'i':'d':inp) = return (VException $"Expected end of input after finding void but got "++inp,[])
+
+  readsPrec _ ('t':'r':'u':'e':[]) = return (VBool True,[])
+  readsPrec _ ('t':'r':'u':'e':inp) = return (VException $"Expected end of input after finding true but got "++inp,[])
+
+  readsPrec _ ('f':'a':'l':'s':'e':[]) = return (VBool False,[])
+  readsPrec _ ('f':'a':'l':'s':'e':inp) = return (VException $"Expected end of input after finding true but got "++inp,[])
   readsPrec _ inp = let neg = head inp == '-' -- a very shitty way of checking if this is negative
                         ds = takeWhile isDigit (if neg then tail inp else inp)
                         ds' = if neg then '-':ds else ds
                         inp' = drop (length ds') inp
                         d = (read::String->Int) ds'
                     in if length ds > 0 then return (VInt d, inp')
-                       else return $ (VString inp, "")
+                       else return $ (VException $"Cannot determine type of "++inp, [])
 
 showNoPrim :: Env -> String
 showNoPrim env = show $ filter (\(_, p) -> case p of 
@@ -164,6 +172,7 @@ sameType (VPrimFunIO _ _) (VPrimFunIO _ _) = True
 sameType (VPrimFun _ _) (VPrimFun _ _) = True
 sameType (VRef _ v1) (VRef _ v2) = sameType v1 v2
 sameType (VArr _) (VArr _) = True
+sameType (VException _) (VException _) = True
 sameType _ _ = False
 
 val2type :: Value -> String
@@ -176,6 +185,7 @@ val2type VVoid            = "void"
 val2type (VClosure _ _ _) = "closure"
 val2type (VPrimFun _ _)   = "primfun"
 val2type (VPrimFunIO _ _) = "primfun io"
+val2type (VException _)   = "exception"
 
 readRefs :: [Expr] -> [Expr]
 readRefs = map (\a -> case a of {EVal (VRef nv _) -> EVal $ unsafePerformIO $ readIORef nv;_ -> a})
