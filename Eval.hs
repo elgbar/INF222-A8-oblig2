@@ -233,7 +233,7 @@ step ((ECall (EVal (VPrimFun n f)) [] vs, env, ctx, tid, ptid) : ts) _ = do
   val <- pmfTry $ evaluate (f rvs)
   case val of
     Right v -> evaluate ((EVal v, env, ctx, tid, ptid):ts)
-    Left e -> error $ "Invalid arguments for the primitive function " ++ show n ++ " "++ show rvs++" types: "++ show (map val2type rvs)
+    Left e -> VException "Invalid arguments for the primitive function " ++ show n ++ " "++ show rvs++" types: "++ show (map val2type rvs)
 
 step ((ECall (EVal (VPrimFunIO n f)) [] vs, env, ctx, tid, ptid) : ts) _ = do
   let rvs = reverse vs

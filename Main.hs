@@ -24,4 +24,3 @@ main = do
     input <- readFile fname 
     run input fname [] verbose debug code
   return ()
-

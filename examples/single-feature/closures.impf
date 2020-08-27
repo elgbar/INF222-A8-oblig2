@@ -3,7 +3,7 @@ var f = fun (a, res) {
   res = fun (b, res) { res = a + b; };
 };
 
-fun f2 = ref fun(){} // init to something, uninitialized vars not supported
+var f2 = ref fun(){}; // init to something, uninitialized vars not supported
 var r = ref 0;
 f(1, f2);
 *f2(2, r);

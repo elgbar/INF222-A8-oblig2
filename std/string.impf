@@ -1,3 +1,6 @@
+//return the first string
+//str = a string
+//cnd = a function of type (cnd(string) -> bool)
 fun takeWhile(str, cnd){
     assert typeof(str) == typeof("");
     string[] count = ref [];
@@ -13,6 +16,33 @@ fun takeWhile(str, cnd){
     return toString(*count);
 }
 
+//return the first string
+//str = a string
+//cnd = a function of type (cnd(string) -> bool)
+fun dropWhile(str, cnd){
+    assert typeof(str) == typeof("");
+    var count = ref str;
+    var len = length(str);
+    for(int i = ref 0; *i < len; i = *i + 1;){
+        var e = str[0];
+        if(cnd(e)){
+            count = remove(count, 0);
+        }else{
+            return toString(*count);
+        }
+    }
+    return toString(*count);
+}
+
+//return the first digits in the given string
+//this is the same as 'takeWhile(str, isDigit)'
+//str = a string
+fun takeWhileDigit(str){
+    return takeWhile(str, isDigit);
+}
+
+//check if the given string is a digit (0-9)
+//str = a string
 fun isDigit(str){
     assert typeof(str) == typeof("");
     var len = length(str);
@@ -23,4 +53,43 @@ fun isDigit(str){
         }
     }
     return true;
+}
+
+//convert a string to a referenced array (element are not referenced)
+//str = a string
+fun str2refArr(str){
+    assert typeof(str) == typeof("");
+    var[] cstr = ref [];
+    var length = length(str);
+    for(int i = ref 0; *i < length; i = *i + 1;){
+        cstr = add(cstr, (str[*i]));
+    }
+    return cstr;
+}
+
+//trims whitespaces on both sides of the given string.
+//str can be a normal string or a referenced string
+//TODO not done
+fun trim(str){
+    var[] cstr = ref [];
+    if(typeof(str) == typeof("")){
+        cstr = str2refArr(str);
+    }
+}
+
+//first index of the given character
+//str = a string
+//c   = a string of length 1
+fun indexOf(str, c){
+    assert typeof(str) == typeof("");
+    assert typeof(c) == typeof("");
+    assert length(c) == 1; //we only check on char at a time
+
+    var length = length(str);
+    for(int i = ref 0; *i < length; i = *i + 1;){
+        if(str[*i] == c){
+            return *i;
+        }
+    }
+    return -1;
 }

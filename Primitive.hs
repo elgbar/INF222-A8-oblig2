@@ -67,7 +67,7 @@ primitives =
                 read <- readIORef rh
                 let xs = case read of 
                             VArr ys -> ys
-                            _ -> error $ "can only remove elements from arrays"
+                            _ -> return $ EVal $ VException $ "can only remove elements from arrays"
                 if index <= 0 then return $ VArr $ if null xs then [] else tail xs
                 else do
                   let (a,b) = splitAt (index+1) xs
